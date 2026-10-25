@@ -8,6 +8,16 @@ use Illuminate\Foundation\Http\FormRequest;
 
 final class ToggleModuleRequest extends FormRequest
 {
-    public function authorize(): bool { return (bool) $this->user()?->is_platform_admin; }
+    public function authorize(): bool
+    {
+        $user = $this->user();
+        return $user !== null && (
+            $user->is_platform_admin
+            || $user->hasPermission('admin.modules.manage')
+            || $user->hasRole('admin_ops')
+            || $user->roles()->where('scope', 'systrat')->whereIn('slug', ['super_admin', 'admin_ops'])->exists()
+        );
+    }
+
     public function rules(): array { return ['enabled' => ['required', 'boolean'], 'settings' => ['sometimes', 'array']]; }
 }

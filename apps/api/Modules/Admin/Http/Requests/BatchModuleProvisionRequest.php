@@ -10,7 +10,13 @@ final class BatchModuleProvisionRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user()?->is_platform_admin;
+        $user = $this->user();
+        return $user !== null && (
+            $user->is_platform_admin
+            || $user->hasPermission('admin.modules.manage')
+            || $user->hasRole('admin_ops')
+            || $user->roles()->where('scope', 'systrat')->whereIn('slug', ['super_admin', 'admin_ops'])->exists()
+        );
     }
 
     /** @return array<string, mixed> */

@@ -103,4 +103,42 @@ final class TenantManagementTest extends TestCase
 
         $this->assertEquals('suspended', $tenant->fresh()->status);
     }
+
+    public function test_operador_systrat_pode_atualizar_modulos_do_tenant(): void
+    {
+        $role = \App\Models\Role::where('slug', 'admin_ops')->first();
+        if (!$role) {
+            $role = \App\Models\Role::create(['name' => 'Admin Ops', 'slug' => 'admin_ops', 'scope' => 'systrat']);
+        }
+        $perm = \App\Models\Permission::firstOrCreate(['slug' => 'admin.tenants.manage'], ['name' => 'Gerenciar Tenants']);
+        $role->permissions()->syncWithoutDetaching([$perm->id]);
+
+        $operador = User::create([
+            'name' => 'Operador Gestor',
+            'email' => 'operador.gestor@systrat.com',
+            'password' => bcrypt('secret'),
+            'is_platform_admin' => false,
+        ]);
+        $operador->roles()->attach($role->id);
+
+        $tenant = Tenant::create([
+            'name' => 'Prefeitura Modulos',
+            'slug' => 'pref-modulos',
+            'cnpj' => '00000000000791',
+            'type' => 'prefeitura',
+            'status' => 'active',
+            'plan' => 'basic',
+            'max_users' => 10,
+            'storage_limit_mb' => 1024,
+        ]);
+
+        $this->actingAs($operador, 'sanctum')
+            ->putJson("/api/admin/tenants/{$tenant->id}", [
+                'name' => 'Prefeitura Modulos Atualizada',
+                'modules' => ['org'],
+            ])
+            ->assertOk();
+
+        $this->assertEquals('Prefeitura Modulos Atualizada', $tenant->fresh()->name);
+    }
 }

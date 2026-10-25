@@ -18,9 +18,40 @@ final class MenuItemPolicy
         return $user->hasPermission($item->permission);
     }
 
-    public function viewAny(User $user): bool { return $user->is_platform_admin; }
-    public function view(User $user, MenuItem $item): bool { return $user->is_platform_admin; }
-    public function create(User $user): bool { return $user->is_platform_admin; }
-    public function update(User $user, MenuItem $item): bool { return $user->is_platform_admin; }
-    public function delete(User $user, MenuItem $item): bool { return $user->is_platform_admin; }
+    public function viewAny(User $user): bool
+    {
+        return $user->is_platform_admin
+            || $user->hasPermission('admin.menus.view')
+            || $user->hasPermission('admin.menus.manage')
+            || $user->roles()->where('scope', 'systrat')->exists();
+    }
+
+    public function view(User $user, MenuItem $item): bool
+    {
+        return $user->is_platform_admin
+            || $user->hasPermission('admin.menus.view')
+            || $user->hasPermission('admin.menus.manage')
+            || $user->roles()->where('scope', 'systrat')->exists();
+    }
+
+    public function create(User $user): bool
+    {
+        return $user->is_platform_admin
+            || $user->hasPermission('admin.menus.manage')
+            || $user->roles()->where('scope', 'systrat')->whereIn('slug', ['super_admin', 'admin_ops'])->exists();
+    }
+
+    public function update(User $user, MenuItem $item): bool
+    {
+        return $user->is_platform_admin
+            || $user->hasPermission('admin.menus.manage')
+            || $user->roles()->where('scope', 'systrat')->whereIn('slug', ['super_admin', 'admin_ops'])->exists();
+    }
+
+    public function delete(User $user, MenuItem $item): bool
+    {
+        return $user->is_platform_admin
+            || $user->hasPermission('admin.menus.manage')
+            || $user->roles()->where('scope', 'systrat')->where('slug', 'super_admin')->exists();
+    }
 }

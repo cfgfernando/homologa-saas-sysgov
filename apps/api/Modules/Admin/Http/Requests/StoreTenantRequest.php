@@ -12,7 +12,12 @@ final class StoreTenantRequest extends FormRequest
     public function authorize(): bool
     {
         $user = $this->user();
-        return $user !== null && ($user->is_platform_admin || $user->hasRole('admin_ops'));
+        return $user !== null && (
+            $user->is_platform_admin
+            || $user->hasPermission('admin.tenants.manage')
+            || $user->hasRole('admin_ops')
+            || $user->roles()->where('scope', 'systrat')->whereIn('slug', ['super_admin', 'admin_ops'])->exists()
+        );
     }
 
     public function rules(): array
