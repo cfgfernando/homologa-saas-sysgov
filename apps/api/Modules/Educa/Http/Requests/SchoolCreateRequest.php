@@ -19,7 +19,8 @@ final class SchoolCreateRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'org_unit_id' => ['required', 'integer'],
+            'org_unit_id' => ['nullable', 'integer'],
+            'nome' => ['nullable', 'string', 'max:255', 'required_without:org_unit_id'],
             'codigo_inep' => ['nullable', 'string', 'max:8'],
             'sigla' => ['required', 'string', 'max:20'],
             'situacao_funcionamento' => ['required', 'string', 'in:em_atividade,paralisada,extinta'],

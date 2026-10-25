@@ -44,7 +44,20 @@ final class EnrollmentService
         }
 
         if (!empty($filtros['academic_year_id'])) {
-            $query->where('academic_year_id', $filtros['academic_year_id']);
+            $val = (string) $filtros['academic_year_id'];
+            if (is_numeric($val) || strlen($val) === 4) {
+                $yearId = EducaAcademicYear::where('ano', (int) $val)->value('id');
+                if ($yearId) {
+                    $query->where('academic_year_id', $yearId);
+                }
+            } else {
+                $query->where('academic_year_id', $val);
+            }
+        } elseif (!empty($filtros['ano'])) {
+            $yearId = EducaAcademicYear::where('ano', (int) $filtros['ano'])->value('id');
+            if ($yearId) {
+                $query->where('academic_year_id', $yearId);
+            }
         }
 
         if (!empty($filtros['grade_id'])) {
@@ -73,17 +86,36 @@ final class EnrollmentService
      * @param array{
      *     tenant_id: int,
      *     aluno_pessoa_id: int,
-     *     school_id: string,
-     *     course_id: string,
-     *     grade_id: string,
-     *     academic_year_id: string,
-     *     data_matricula: string,
+     *     school_id?: string,
+     *     course_id?: string,
+     *     grade_id?: string,
+     *     academic_year_id?: string,
+     *     ano?: int|string,
+     *     turma_id?: string|null,
+     *     data_matricula?: string,
      *     tipo_matricula?: string
      * } $dados
      */
     public function criar(array $dados): EducaEnrollment
     {
         Pessoa::findOrFail($dados['aluno_pessoa_id']);
+
+        if (!empty($dados['turma_id'])) {
+            $turma = EducaSchoolClass::findOrFail($dados['turma_id']);
+            $dados['school_id'] = $dados['school_id'] ?? $turma->school_id;
+            $dados['academic_year_id'] = $dados['academic_year_id'] ?? $turma->academic_year_id;
+            $dados['course_id'] = $dados['course_id'] ?? $turma->course_id;
+            $dados['grade_id'] = $dados['grade_id'] ?? $turma->grade_id;
+        }
+
+        if (empty($dados['academic_year_id']) && !empty($dados['ano'])) {
+            $dados['academic_year_id'] = EducaAcademicYear::where('ano', (int) $dados['ano'])->value('id');
+        }
+
+        if (empty($dados['data_matricula'])) {
+            $dados['data_matricula'] = now()->toDateString();
+        }
+
         $anoLetivo = EducaAcademicYear::findOrFail($dados['academic_year_id']);
 
         // Trava de duplicidade: estudante não pode ter 2 matrículas ativas na mesma série e ano letivo
@@ -104,8 +136,17 @@ final class EnrollmentService
             $dados['status'] = EducaEnrollment::STATUS_ATIVA;
             $dados['tipo_matricula'] = $dados['tipo_matricula'] ?? 'inicial';
 
-            $matricula = EducaEnrollment::create($dados);
-            $matricula->load(['aluno', 'escola.orgUnit', 'curso', 'serie', 'anoLetivo']);
+            $matriculaData = $dados;
+            $turmaId = $dados['turma_id'] ?? null;
+            unset($matriculaData['turma_id'], $matriculaData['ano']);
+
+            $matricula = EducaEnrollment::create($matriculaData);
+
+            if ($turmaId) {
+                app(ClassEnrollmentService::class)->enturmar($matricula, $turmaId, $dados['data_matricula']);
+            }
+
+            $matricula->load(['aluno', 'escola.orgUnit', 'curso', 'serie', 'anoLetivo', 'enturmacaoAtiva.turma']);
 
             $this->audit->record('educa', 'enrollment.created', "EducaEnrollment #{$matricula->id}", null, $matricula->toArray());
 

@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use LogicException;
 use Modules\Educa\Models\EducaSchool;
 use Modules\Educa\Models\EducaSchoolClass;
+use Modules\OrgChart\Models\OrgUnit;
 
 /**
  * Serviço de Negócio para Unidades Escolares e Capacidade de Atendimento.
@@ -68,8 +69,21 @@ final class SchoolService
      */
     public function criar(array $dados): EducaSchool
     {
-        $tenantId = $dados['tenant_id'];
-        $orgUnitId = $dados['org_unit_id'];
+        $tenantId = (int) $dados['tenant_id'];
+
+        if (empty($dados['org_unit_id'])) {
+            $nome = $dados['nome'] ?? $dados['sigla'];
+            $orgUnit = OrgUnit::create([
+                'tenant_id' => $tenantId,
+                'name' => $nome,
+                'code' => 'ESC-' . strtoupper($dados['sigla']),
+                'type' => 'departamento',
+                'is_active' => true,
+            ]);
+            $dados['org_unit_id'] = $orgUnit->id;
+        }
+
+        $orgUnitId = (int) $dados['org_unit_id'];
         $inep = $dados['codigo_inep'] ?? null;
 
         if (EducaSchool::where('org_unit_id', $orgUnitId)->exists()) {

@@ -94,7 +94,7 @@ final class EducaDemonstracaoSeeder extends Seeder
             $anoLetivo = EducaAcademicYear::firstOrCreate(
                 ['tenant_id' => $tId, 'school_id' => $escola->id, 'ano' => 2026],
                 [
-                    'status' => 'ativo',
+                    'status' => 'active',
                     'data_inicio' => '2026-02-05',
                     'data_fim' => '2026-12-18',
                 ]

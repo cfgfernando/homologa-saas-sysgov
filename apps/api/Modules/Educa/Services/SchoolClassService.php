@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LogicException;
+use Modules\Educa\Models\EducaAcademicYear;
 use Modules\Educa\Models\EducaSchoolClass;
 use Modules\Educa\Models\EducaSchoolGrade;
 
@@ -26,6 +27,7 @@ final class SchoolClassService
      * @param array{
      *     school_id?: string|null,
      *     academic_year_id?: string|null,
+     *     ano?: int|string|null,
      *     turno?: string|null
      * } $filtros
      * @return Collection<int, EducaSchoolClass>
@@ -39,7 +41,20 @@ final class SchoolClassService
         }
 
         if (!empty($filtros['academic_year_id'])) {
-            $query->where('academic_year_id', $filtros['academic_year_id']);
+            $val = (string) $filtros['academic_year_id'];
+            if (is_numeric($val) || strlen($val) === 4) {
+                $yearId = EducaAcademicYear::where('ano', (int) $val)->value('id');
+                if ($yearId) {
+                    $query->where('academic_year_id', $yearId);
+                }
+            } else {
+                $query->where('academic_year_id', $val);
+            }
+        } elseif (!empty($filtros['ano'])) {
+            $yearId = EducaAcademicYear::where('ano', (int) $filtros['ano'])->value('id');
+            if ($yearId) {
+                $query->where('academic_year_id', $yearId);
+            }
         }
 
         if (!empty($filtros['turno'])) {

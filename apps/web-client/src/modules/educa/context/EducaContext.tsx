@@ -6,6 +6,10 @@ export interface EducaEscola {
   nome: string;
   sigla?: string;
   codigo_inep?: string;
+  zona?: string;
+  situacao_funcionamento?: string;
+  dependencia_administrativa?: string;
+  regulamentada?: boolean;
 }
 
 export interface EducaAnoLetivo {
