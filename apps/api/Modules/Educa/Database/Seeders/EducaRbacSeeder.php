@@ -54,6 +54,10 @@ final class EducaRbacSeeder extends Seeder
             'name' => 'SYS-Educa: Comunicação e Notificações',
             'description' => 'Notificações a pais e responsáveis sobre faltas, ocorrências e comunicados oficiais via mensageria/Outbox.',
         ],
+        'educa-merenda' => [
+            'name' => 'SYS-Educa: Alimentação Escolar (PNAE)',
+            'description' => 'Gestão nutricional PNAE, cardápios, laudos de restrições alimentares e controle diário de refeições.',
+        ],
     ];
 
     /**
@@ -107,6 +111,17 @@ final class EducaRbacSeeder extends Seeder
         'educa.comunicacao.ocorrencias.view' => 'Consultar ocorrências pedagógicas e disciplinares',
         'educa.comunicacao.ocorrencias.manage' => 'Registrar ocorrências e despachar providências',
         'educa.comunicacao.notificacoes.send' => 'Disparar notificações e alertas via Outbox',
+        'educa.secretaria.view' => 'Visualizar Secretaria Escolar',
+        'educa.pedagogico.view' => 'Visualizar Diário e Avaliação',
+        'educa.merenda.view' => 'Visualizar Alimentação Escolar (PNAE)',
+        'educa.merenda.manage' => 'Gerenciar Cardápios e Refeições do PNAE',
+        'educa-secretaria.view' => 'Acesso ao submódulo Secretaria Escolar',
+        'educa-pedagogico.view' => 'Acesso ao submódulo Diário e Pedagógico',
+        'educa-servidores.view' => 'Acesso ao submódulo Servidores da Educação',
+        'educa-educacenso.view' => 'Acesso ao submódulo Educacenso',
+        'educa-transporte.view' => 'Acesso ao submódulo Transporte Escolar',
+        'educa-comunicacao.view' => 'Acesso ao submódulo Comunicação Escolar',
+        'educa-merenda.view' => 'Acesso ao submódulo Alimentação Escolar',
     ];
 
     /**
@@ -236,23 +251,25 @@ final class EducaRbacSeeder extends Seeder
             );
         }
 
-        // 4. Provisiona o módulo 'educa' para os tenants existentes
+        // 4. Provisiona o módulo 'educa' e todos os seus submódulos para os tenants existentes
         $provisioner = app(ModuleRoleProvisioner::class);
         $allTenants = Tenant::all();
 
         foreach ($allTenants as $tenant) {
-            $tenant->modules()->syncWithoutDetaching([
-                $modulesMap['educa']->id => [
+            $pivotModules = [];
+            foreach ($modulesMap as $alias => $mod) {
+                $pivotModules[$mod->id] = [
                     'enabled' => true,
                     'monthly_fee_cents' => 0,
                     'settings' => json_encode([]),
-                ],
-            ]);
+                ];
+            }
+            $tenant->modules()->syncWithoutDetaching($pivotModules);
 
             $provisioner->provisionForTenant($tenant, 'educa');
         }
 
-        $this->informar('SYS-Educa: 7 submódulos registrados no catálogo, permissões e perfis provisionados com sucesso.');
+        $this->informar('SYS-Educa: todos os submódulos registrados no catálogo e provisionados nos tenants com sucesso.');
     }
 
     private function informar(string $mensagem): void

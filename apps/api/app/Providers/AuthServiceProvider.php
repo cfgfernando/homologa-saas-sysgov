@@ -50,6 +50,12 @@ final class AuthServiceProvider extends ServiceProvider
             }
             $module = Module::where('alias', $moduleAlias)->first();
             if (!$module) {
+                if (str_starts_with($moduleAlias, 'educa-')) {
+                    $educaParent = Module::where('alias', 'educa')->first();
+                    if ($educaParent && $educaParent->tenants()->where('tenant_id', $tenantId)->where('enabled', true)->exists()) {
+                        return true;
+                    }
+                }
                 return false;
             }
 
@@ -59,6 +65,12 @@ final class AuthServiceProvider extends ServiceProvider
                 ->exists();
 
             if (!$tenantModule) {
+                if (str_starts_with($moduleAlias, 'educa-')) {
+                    $educaParent = Module::where('alias', 'educa')->first();
+                    if ($educaParent && $educaParent->tenants()->where('tenant_id', $tenantId)->where('enabled', true)->exists()) {
+                        return true;
+                    }
+                }
                 return false;
             }
 

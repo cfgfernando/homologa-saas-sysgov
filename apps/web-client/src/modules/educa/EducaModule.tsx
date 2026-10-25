@@ -70,14 +70,15 @@ export const EducaModuleContent: React.FC = () => {
   const { hasModule } = useCan();
   const [tabAtiva, setTabAtiva] = useState<string>('core');
 
-  // Checa licenças dos submódulos conforme module-access
-  const temSecretaria = hasModule('educa-secretaria');
-  const temPedagogico = hasModule('educa-pedagogico');
-  const temServidores = hasModule('educa-servidores');
-  const temEducacenso = hasModule('educa-educacenso');
-  const temTransporte = hasModule('educa-transporte');
-  const temComunicacao = hasModule('educa-comunicacao');
-  const temMerenda = hasModule('educa-merenda');
+  // Checa licenças dos submódulos conforme module-access (com herança do módulo mãe 'educa')
+  const temEducaGeral = hasModule('educa');
+  const temSecretaria = hasModule('educa-secretaria') || temEducaGeral;
+  const temPedagogico = hasModule('educa-pedagogico') || temEducaGeral;
+  const temServidores = hasModule('educa-servidores') || temEducaGeral;
+  const temEducacenso = hasModule('educa-educacenso') || temEducaGeral;
+  const temTransporte = hasModule('educa-transporte') || temEducaGeral;
+  const temComunicacao = hasModule('educa-comunicacao') || temEducaGeral;
+  const temMerenda = hasModule('educa-merenda') || temEducaGeral;
 
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">

@@ -51,9 +51,10 @@ final class EducaDemonstracaoSeeder extends Seeder
             throw new \RuntimeException('Dados de demonstração não podem ser semeados em ambiente de produção.');
         }
 
+        $context = app(TenantContext::class);
         $tenant = $tenantId !== null 
             ? Tenant::find($tenantId) 
-            : (app(TenantContext::class)->get() ?? Tenant::where('slug', 'systrat')->first() ?? Tenant::first());
+            : ($context->hasTenant() ? $context->get() : (Tenant::where('slug', 'araucaria-pr')->first() ?? Tenant::where('slug', 'systrat')->first() ?? Tenant::first()));
 
         if (!$tenant) {
             $this->command?->error('Tenant não encontrado — abortando carga de demonstração do Educa.');
@@ -72,7 +73,7 @@ final class EducaDemonstracaoSeeder extends Seeder
                 [
                     'name' => 'Escola Municipal Professora Maria da Silva',
                     'type' => 'departamento',
-                    'status' => 'active',
+                    'is_active' => true,
                 ]
             );
 
@@ -115,7 +116,6 @@ final class EducaDemonstracaoSeeder extends Seeder
                         'sequencial' => $et['sequencial'],
                     ],
                     [
-                        'nome' => $et['nome'],
                         'data_inicio' => $et['inicio'],
                         'data_fim' => $et['fim'],
                         'dias_letivos' => 50,
@@ -244,11 +244,11 @@ final class EducaDemonstracaoSeeder extends Seeder
                 $pessoa = Pessoa::firstOrCreate(
                     ['tenant_id' => $tId, 'documento_hash' => $docHash],
                     [
-                        'tipo' => 'PF',
+                        'tipo' => 'fisica',
                         'nome' => $dadoAluno['nome'],
-                        'cpf' => $dadoAluno['cpf'],
+                        'documento' => $dadoAluno['cpf'],
                         'data_nascimento' => $dadoAluno['nasc'],
-                        'filiacao' => $dadoAluno['mae'],
+                        'nome_mae' => $dadoAluno['mae'],
                         'status' => 'ativo',
                     ]
                 );
