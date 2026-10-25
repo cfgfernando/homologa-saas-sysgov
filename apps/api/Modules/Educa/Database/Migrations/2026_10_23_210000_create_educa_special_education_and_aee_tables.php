@@ -119,7 +119,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->index(['tenant_id', 'student_profile_id', 'status']);
-            $table->index(['tenant_id', 'resource_room_id', 'turno_atendimento']);
+            $table->index(['tenant_id', 'resource_room_id', 'turno_atendimento'], 'ed_aee_enr_tenant_room_turno_idx');
         });
 
         // 6. Alocação de Profissionais de Apoio Escolar (Cuidadores e Intérpretes)
@@ -139,8 +139,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tenant_id', 'caregiver_employee_id', 'status']);
-            $table->index(['tenant_id', 'student_profile_id', 'status']);
+            $table->index(['tenant_id', 'caregiver_employee_id', 'status'], 'ed_aee_alloc_tenant_caregiver_idx');
+            $table->index(['tenant_id', 'student_profile_id', 'status'], 'ed_aee_alloc_tenant_profile_idx');
             $table->index(['tenant_id', 'school_id', 'turno']);
         });
     }

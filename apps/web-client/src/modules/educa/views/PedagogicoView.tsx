@@ -14,8 +14,9 @@ import {
   TableCell,
   Textarea,
 } from '@sysgov/ui';
-import { Check, X, BookOpen, Clock, Award, Save } from 'lucide-react';
+import { Check, X, BookOpen, Clock, Award, Save, Printer, FileText } from 'lucide-react';
 import { useEduca } from '../context/EducaContext';
+import { visualizarDocumentoPdf } from '../utils/documentos';
 
 interface AlunoFrequencia {
   id: string;
@@ -199,13 +200,24 @@ export const PedagogicoView: React.FC = () => {
       {/* Conteúdo: Avaliações e Médias */}
       {abaAtiva === 'notas' && (
         <Card className="bg-white border-gov-border">
-          <CardHeader className="border-b border-gov-border pb-3">
-            <CardTitle className="text-sm font-semibold text-gov-text-primary">
-              Mapa de Rendimento e Avaliação (Média Aritmética Oficial)
-            </CardTitle>
-            <p className="text-xs text-gov-text-muted mt-0.5">
-              Cálculo declarativo via motor de avaliação sem eval() (mínimo de aprovação: 6.0).
-            </p>
+          <CardHeader className="flex flex-row items-center justify-between border-b border-gov-border pb-3">
+            <div>
+              <CardTitle className="text-sm font-semibold text-gov-text-primary">
+                Mapa de Rendimento e Avaliação (Média Aritmética Oficial)
+              </CardTitle>
+              <p className="text-xs text-gov-text-muted mt-0.5">
+                Cálculo declarativo via motor de avaliação sem eval() (mínimo de aprovação: 6.0).
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => visualizarDocumentoPdf('/educa/documentos/turmas/demo/boletins-lote-pdf')}
+              className="text-xs text-blue-700 hover:bg-blue-50 border-blue-300 flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              Emitir Boletins da Turma (PDF)
+            </Button>
           </CardHeader>
 
           <CardContent className="pt-4">

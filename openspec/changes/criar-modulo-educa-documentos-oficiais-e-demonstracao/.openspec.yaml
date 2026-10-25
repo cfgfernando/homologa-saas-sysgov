@@ -1,0 +1,3 @@
+name: criar-modulo-educa-documentos-oficiais-e-demonstracao
+version: 1.0.0
+description: Emissão de documentos oficiais escolares em PDF (Boletim, Histórico LDB, Declarações com QR Code, Ficha Individual) e Seeder completo de demonstração da rede municipal

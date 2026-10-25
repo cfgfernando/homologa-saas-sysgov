@@ -49,7 +49,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->unique(['tenant_id', 'cronograma_id', 'school_class_id', 'curriculum_component_id'], 'uq_pre_conselho_turma_disciplina');
-            $table->index(['tenant_id', 'school_class_id', 'periodo']);
+            $table->index(['tenant_id', 'school_class_id', 'periodo'], 'ed_conselho_pre_tenant_class_per_idx');
         });
 
         // 3. Alunos Sinalizados na Ficha de Pré-Conselho
@@ -65,8 +65,8 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tenant_id', 'pre_conselho_id']);
-            $table->index(['tenant_id', 'enrollment_id']);
+            $table->index(['tenant_id', 'pre_conselho_id'], 'ed_conselho_pre_aluno_tenant_idx');
+            $table->index(['tenant_id', 'enrollment_id'], 'ed_conselho_pre_enr_tenant_idx');
         });
 
         // 4. Ata Deliberativa de Conselho de Classe
@@ -109,7 +109,7 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->unique(['tenant_id', 'ata_id', 'enrollment_id'], 'uq_deliberacao_ata_aluno');
-            $table->index(['tenant_id', 'enrollment_id']);
+            $table->index(['tenant_id', 'enrollment_id'], 'ed_conselho_delib_enr_tenant_idx');
         });
 
         // 6. Membros Presentes e Assinaturas da Ata

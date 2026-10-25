@@ -360,3 +360,12 @@ Route::prefix('conselho')->group(function (): void {
     Route::post('/atas/{ataId}/finalizar', [\Modules\Educa\Http\Controllers\ConselhoAtaController::class, 'finalizar'])->name('educa.conselho.atas.finalizar');
     Route::post('/atas/{ataId}/homologar', [\Modules\Educa\Http\Controllers\ConselhoAtaController::class, 'homologar'])->name('educa.conselho.atas.homologar');
 });
+
+// ── Submódulo Documentos Oficiais em PDF: Boletim, Histórico LDB e Declarações ─
+Route::prefix('documentos')->group(function (): void {
+    Route::get('/matriculas/{matriculaId}/boletim-pdf', [\Modules\Educa\Http\Controllers\DocumentosOficiaisController::class, 'boletimPdf'])->name('educa.documentos.boletim_pdf');
+    Route::get('/turmas/{turmaId}/boletins-lote-pdf', [\Modules\Educa\Http\Controllers\DocumentosOficiaisController::class, 'boletinsLotePdf'])->name('educa.documentos.boletins_lote_pdf');
+    Route::get('/alunos/{alunoId}/historico-escolar-pdf', [\Modules\Educa\Http\Controllers\DocumentosOficiaisController::class, 'historicoEscolarPdf'])->name('educa.documentos.historico_pdf');
+    Route::get('/matriculas/{matriculaId}/declaracao-matricula-pdf', [\Modules\Educa\Http\Controllers\DocumentosOficiaisController::class, 'declaracaoMatriculaPdf'])->name('educa.documentos.declaracao_matricula_pdf');
+    Route::get('/matriculas/{matriculaId}/ficha-individual-pdf', [\Modules\Educa\Http\Controllers\DocumentosOficiaisController::class, 'fichaIndividualPdf'])->name('educa.documentos.ficha_individual_pdf');
+});

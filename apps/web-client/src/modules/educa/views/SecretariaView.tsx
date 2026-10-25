@@ -16,9 +16,10 @@ import {
   PessoaPicker,
   Input,
 } from '@sysgov/ui';
-import { UserCheck, UserPlus, ArrowRightLeft, FileText, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { UserCheck, UserPlus, ArrowRightLeft, FileText, CheckCircle2, AlertTriangle, Printer, FileDown } from 'lucide-react';
 import { useEduca } from '../context/EducaContext';
 import { apiClient } from '@/core/api/client';
+import { visualizarDocumentoPdf } from '../utils/documentos';
 
 interface MatriculaItem {
   id: string;
@@ -181,9 +182,38 @@ export const SecretariaView: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" className="h-7 text-xs text-blue-700 hover:text-blue-900">
-                        Histórico
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-blue-700 hover:text-blue-900 flex items-center gap-1"
+                          onClick={() => visualizarDocumentoPdf(`/educa/documentos/matriculas/${m.id}/boletim-pdf`)}
+                          title="Visualizar Boletim Escolar"
+                        >
+                          <FileText className="h-3.5 w-3.5" />
+                          Boletim
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-emerald-700 hover:text-emerald-900 flex items-center gap-1"
+                          onClick={() => visualizarDocumentoPdf(`/educa/documentos/matriculas/${m.id}/declaracao-matricula-pdf`)}
+                          title="Emitir Declaração de Matrícula com QR Code"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          Declaração
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-purple-700 hover:text-purple-900 flex items-center gap-1"
+                          onClick={() => visualizarDocumentoPdf(`/educa/documentos/matriculas/${m.id}/ficha-individual-pdf`)}
+                          title="Emitir Ficha Individual do Estudante"
+                        >
+                          <FileDown className="h-3.5 w-3.5" />
+                          Ficha
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

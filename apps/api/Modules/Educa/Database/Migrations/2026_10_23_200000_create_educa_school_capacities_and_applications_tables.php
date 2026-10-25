@@ -28,7 +28,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['tenant_id', 'school_id', 'academic_year_id']);
+            $table->index(['tenant_id', 'school_id', 'academic_year_id'], 'ed_cap_tenant_school_year_idx');
             $table->index(['tenant_id', 'etapa_ensino', 'turno']);
         });
 
@@ -60,8 +60,8 @@ return new class extends Migration
 
             $table->unique(['tenant_id', 'numero_protocolo']);
             $table->index(['tenant_id', 'status']);
-            $table->index(['tenant_id', 'candidato_pessoa_id']);
-            $table->index(['tenant_id', 'escola_preferencia_1_id', 'etapa_ensino']);
+            $table->index(['tenant_id', 'candidato_pessoa_id'], 'ed_app_tenant_candidato_idx');
+            $table->index(['tenant_id', 'escola_preferencia_1_id', 'etapa_ensino'], 'ed_app_tenant_esc1_etapa_idx');
         });
 
         // 3. Fila de Espera Classificada (Lei Federal nº 14.685/2023)

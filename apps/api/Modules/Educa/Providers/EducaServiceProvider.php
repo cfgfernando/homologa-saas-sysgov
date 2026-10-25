@@ -19,6 +19,13 @@ final class EducaServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
+        $this->loadViewsFrom(__DIR__ . '/../Resources/views', 'educa');
+
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                \Modules\Educa\Console\Commands\SeedDemoCommand::class,
+            ]);
+        }
 
         Gate::policy(EducaAcademicYear::class, AcademicYearPolicy::class);
         Gate::policy(EducaAcademicCalendar::class, AcademicCalendarPolicy::class);
