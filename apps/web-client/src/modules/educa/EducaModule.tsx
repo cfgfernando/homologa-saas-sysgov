@@ -3,6 +3,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent, Card, CardContent } from '@sy
 import {
   GraduationCap,
   Calendar,
+  School,
   Users,
   BookOpen,
   UserCheck,
@@ -93,8 +94,8 @@ export const EducaModuleContent: React.FC = () => {
               value="core"
               className="data-[state=active]:bg-blue-50 data-[state=active]:text-blue-800 data-[state=active]:border-b-2 data-[state=active]:border-blue-700 text-xs py-2.5 px-3 rounded-none font-medium flex items-center gap-1.5"
             >
-              <Calendar className="w-3.5 h-3.5" />
-              Gestão Acadêmica
+              <School className="w-3.5 h-3.5" />
+              Escolas & Gestão Acadêmica
             </TabsTrigger>
 
             <TabsTrigger
