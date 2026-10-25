@@ -10,6 +10,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::dropIfExists('educa_enrollment_applications');
+        Schema::dropIfExists('educa_school_capacities');
+
         // 1. Capacidade e Oferta de Vagas por Escola e Turno
         Schema::create('educa_school_capacities', function (Blueprint $table): void {
             $table->uuid('id')->primary();
