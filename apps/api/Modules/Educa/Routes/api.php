@@ -194,12 +194,22 @@ Route::prefix('educacenso')->middleware('module-access:educa-educacenso')->group
     Route::get('/retorno/logs', [\Modules\Educa\Http\Controllers\EducacensoController::class, 'listarLogsRetorno'])->name('educa.educacenso.retorno.logs');
 });
 
-// ── Submódulo Transporte Escolar: Rotas, Veículos, Condutores e Alocações ────
+// ── Submódulo Transporte Escolar: Rotas, Veículos, Condutores, Empresas e Alocações ────
 Route::prefix('transporte')->middleware('module-access:educa-transporte')->group(function (): void {
+    // Auditoria e Censo Escolar Registro 60 (MEC/INEP e PNATE)
+    Route::get('/censo/registro60', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'validarRegistro60Censo'])->name('educa.transporte.censo.registro60');
+
+    // Empresas Prestadoras de Serviço / Contratos Terceirizados
+    Route::get('/empresas', [\Modules\Educa\Http\Controllers\TransportCompanyController::class, 'index'])->name('educa.transporte.empresas.index');
+    Route::post('/empresas', [\Modules\Educa\Http\Controllers\TransportCompanyController::class, 'store'])->name('educa.transporte.empresas.store');
+    Route::get('/empresas/{empresaId}', [\Modules\Educa\Http\Controllers\TransportCompanyController::class, 'show'])->name('educa.transporte.empresas.show');
+    Route::put('/empresas/{empresaId}', [\Modules\Educa\Http\Controllers\TransportCompanyController::class, 'update'])->name('educa.transporte.empresas.update');
+
     // Rotas e Paradas
     Route::get('/rotas', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'index'])->name('educa.transporte.rotas.index');
     Route::post('/rotas', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'store'])->name('educa.transporte.rotas.store');
     Route::get('/rotas/{rotaId}', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'show'])->name('educa.transporte.rotas.show');
+    Route::get('/rotas/{rotaId}/ocupacao', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'ocupacao'])->name('educa.transporte.rotas.ocupacao');
     Route::put('/rotas/{rotaId}', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'update'])->name('educa.transporte.rotas.update');
     Route::post('/rotas/{rotaId}/paradas', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'adicionarParada'])->name('educa.transporte.rotas.paradas.store');
     Route::post('/rotas/{rotaId}/escolas', [\Modules\Educa\Http\Controllers\TransportRouteController::class, 'vincularEscolas'])->name('educa.transporte.rotas.escolas.sync');

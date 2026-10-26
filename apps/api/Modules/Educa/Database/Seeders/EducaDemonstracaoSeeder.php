@@ -34,6 +34,7 @@ use Modules\Educa\Models\EducaMenuItem;
 use Modules\Educa\Models\EducaSchool;
 use Modules\Educa\Models\EducaSchoolClass;
 use Modules\Educa\Models\EducaStudentGrade;
+use Modules\Educa\Models\EducaTransportCompany;
 use Modules\Educa\Models\EducaTransportDriver;
 use Modules\Educa\Models\EducaTransportInspection;
 use Modules\Educa\Models\EducaTransportRoute;
@@ -400,8 +401,33 @@ final class EducaDemonstracaoSeeder extends Seeder
             );
 
             // ==========================================
-            // 8. Transporte Escolar (Rotas, Veículos, Condutores e Alocações)
+            // 8. Transporte Escolar (Empresas Terceirizadas, Frotas, Condutores, Rotas e Registro 60 / PNATE)
             // ==========================================
+            $pjEmpresa = Pessoa::firstOrCreate(
+                ['tenant_id' => $tId, 'documento_hash' => Documento::hash('12345678000190')],
+                [
+                    'tipo' => 'JURIDICA',
+                    'nome' => 'Viação Estrela do Vale Transportes Ltda.',
+                    'documento' => '12.345.678/0001-90',
+                    'email' => 'licitacao@estreladovale.com.br',
+                    'status' => 'ATIVO',
+                ]
+            );
+
+            $empresaTransporte = EducaTransportCompany::firstOrCreate(
+                ['tenant_id' => $tId, 'cnpj' => '12.345.678/0001-90'],
+                [
+                    'legal_person_id' => $pjEmpresa->id,
+                    'razao_social' => 'Viação Estrela do Vale Transportes Ltda.',
+                    'nome_fantasia' => 'Estrela do Vale Escolar',
+                    'contract_number' => 'CONTRATO-LIC-2026/042',
+                    'contract_start_date' => '2026-01-01',
+                    'contract_end_date' => '2026-12-31',
+                    'is_active' => true,
+                    'notes' => 'Responsável: Carlos Eduardo Silveira - Contato: licitacao@estreladovale.com.br / (11) 98765-4321',
+                ]
+            );
+
             $condutorPessoa = Pessoa::firstOrCreate(
                 ['tenant_id' => $tId, 'documento_hash' => Documento::hash('44455566677')],
                 [
@@ -417,9 +443,12 @@ final class EducaDemonstracaoSeeder extends Seeder
             $motorista = EducaTransportDriver::firstOrCreate(
                 ['tenant_id' => $tId, 'pessoa_id' => $condutorPessoa->id, 'tipo_funcao' => 'motorista'],
                 [
+                    'company_id' => null,
                     'cnh_numero' => '12345678900',
                     'cnh_categoria' => 'D',
                     'cnh_validade' => Carbon::now()->addYears(2),
+                    'toxicological_exam_date' => Carbon::now()->subMonths(3),
+                    'toxicological_expiration_date' => Carbon::now()->addMonths(21),
                     'curso_transporte_escolar' => true,
                     'validade_curso' => Carbon::now()->addYears(3),
                     'ativo' => true,
@@ -440,6 +469,7 @@ final class EducaDemonstracaoSeeder extends Seeder
             $monitor = EducaTransportDriver::firstOrCreate(
                 ['tenant_id' => $tId, 'pessoa_id' => $monitorPessoa->id, 'tipo_funcao' => 'monitor'],
                 [
+                    'company_id' => null,
                     'curso_transporte_escolar' => true,
                     'validade_curso' => Carbon::now()->addYears(2),
                     'ativo' => true,
@@ -449,13 +479,18 @@ final class EducaDemonstracaoSeeder extends Seeder
             $veiculoRural = EducaTransportVehicle::firstOrCreate(
                 ['tenant_id' => $tId, 'placa' => 'BRA2E19'],
                 [
+                    'company_id' => null,
                     'renavam' => '00987654321',
+                    'chassis' => '9BM384077PB000123',
                     'marca_modelo' => 'Mercedes-Benz / Marcopolo Volare V8 Escolar',
                     'ano_fabricacao' => 2022,
                     'tipologia' => 'microonibus',
+                    'vehicle_type_inep' => 2,
                     'tipo_propriedade' => 'proprio',
                     'capacidade_passageiros' => 24,
                     'ocupacao_efetiva' => 1,
+                    'is_exclusive_school_use' => true,
+                    'is_accessible_disability' => true,
                     'status' => 'regular',
                 ]
             );
@@ -474,13 +509,18 @@ final class EducaDemonstracaoSeeder extends Seeder
             $veiculoUrbano = EducaTransportVehicle::firstOrCreate(
                 ['tenant_id' => $tId, 'placa' => 'SYG4040'],
                 [
+                    'company_id' => $empresaTransporte->id,
                     'renavam' => '00123456789',
+                    'chassis' => '9BM384077PB000456',
                     'marca_modelo' => 'Mercedes-Benz / Caio Apache VIP V',
                     'ano_fabricacao' => 2023,
                     'tipologia' => 'onibus',
+                    'vehicle_type_inep' => 3,
                     'tipo_propriedade' => 'terceirizado',
                     'capacidade_passageiros' => 44,
                     'ocupacao_efetiva' => 0,
+                    'is_exclusive_school_use' => true,
+                    'is_accessible_disability' => false,
                     'status' => 'regular',
                 ]
             );
@@ -499,12 +539,18 @@ final class EducaDemonstracaoSeeder extends Seeder
             $rotaRural = EducaTransportRoute::firstOrCreate(
                 ['tenant_id' => $tId, 'codigo' => 'ROTA-RURAL-01'],
                 [
+                    'academic_year' => 2026,
+                    'company_id' => null,
                     'nome' => 'Linha Água Limpa → Sede Municipal (Escola Polo)',
                     'turno' => 'matutino',
                     'tipo_rota' => 'rural',
                     'quilometragem_estimada' => 38.5,
+                    'km_paved' => 12.0,
+                    'km_unpaved' => 26.5,
                     'horario_saida' => '06:15',
                     'horario_chegada' => '07:10',
+                    'return_departure_time' => '12:30',
+                    'is_outsourced' => false,
                     'ativo' => true,
                 ]
             );
@@ -512,12 +558,18 @@ final class EducaDemonstracaoSeeder extends Seeder
             $rotaUrbana = EducaTransportRoute::firstOrCreate(
                 ['tenant_id' => $tId, 'codigo' => 'ROTA-URB-02'],
                 [
+                    'academic_year' => 2026,
+                    'company_id' => $empresaTransporte->id,
                     'nome' => 'Linha Bairro Esperança → Complexo Educacional Norte',
                     'turno' => 'vespertino',
                     'tipo_rota' => 'urbana',
                     'quilometragem_estimada' => 14.2,
+                    'km_paved' => 14.2,
+                    'km_unpaved' => 0.0,
                     'horario_saida' => '12:15',
                     'horario_chegada' => '12:55',
+                    'return_departure_time' => '17:30',
+                    'is_outsourced' => true,
                     'ativo' => true,
                 ]
             );
@@ -581,7 +633,7 @@ final class EducaDemonstracaoSeeder extends Seeder
                 ]
             );
 
-            // Alocação de Aluno no Transporte
+            // Alocação de Aluno no Transporte (Registro 60 Censo / PNATE)
             if (! empty($matriculas)) {
                 $primeiraMatricula = $matriculas[0];
                 EducaTransportStudentAllocation::firstOrCreate(
@@ -594,6 +646,9 @@ final class EducaDemonstracaoSeeder extends Seeder
                         'vehicle_id' => $veiculoRural->id,
                         'stop_id' => $pontoRural1->id,
                         'aluno_pessoa_id' => $primeiraMatricula->student_id,
+                        'uses_rural_transport' => true,
+                        'public_transport_jurisdiction' => 2, // Municipal
+                        'special_needs_transport' => false,
                         'data_inicio' => Carbon::now()->startOfYear(),
                         'status' => 'ativa',
                     ]

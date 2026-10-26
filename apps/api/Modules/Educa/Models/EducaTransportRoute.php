@@ -33,20 +33,35 @@ final class EducaTransportRoute extends Model
 
     protected $fillable = [
         'tenant_id',
+        'company_id',
         'codigo',
         'nome',
+        'academic_year',
         'turno',
         'tipo_rota',
         'quilometragem_estimada',
+        'km_paved',
+        'km_unpaved',
         'horario_saida',
         'horario_chegada',
+        'return_departure_time',
+        'is_outsourced',
         'ativo',
     ];
 
     protected $casts = [
+        'academic_year' => 'integer',
         'quilometragem_estimada' => 'float',
+        'km_paved' => 'float',
+        'km_unpaved' => 'float',
+        'is_outsourced' => 'boolean',
         'ativo' => 'boolean',
     ];
+
+    public function company(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(EducaTransportCompany::class, 'company_id');
+    }
 
     public function stops(): HasMany
     {

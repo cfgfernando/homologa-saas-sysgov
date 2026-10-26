@@ -28,6 +28,7 @@ final class EducaTransportDriver extends Model
 
     protected $fillable = [
         'tenant_id',
+        'company_id',
         'pessoa_id',
         'tipo_funcao',
         'cnh_numero',
@@ -35,15 +36,24 @@ final class EducaTransportDriver extends Model
         'cnh_validade',
         'curso_transporte_escolar',
         'validade_curso',
+        'toxicological_exam_date',
+        'toxicological_expiration_date',
         'ativo',
     ];
 
     protected $casts = [
         'cnh_validade' => 'date:Y-m-d',
         'validade_curso' => 'date:Y-m-d',
+        'toxicological_exam_date' => 'date:Y-m-d',
+        'toxicological_expiration_date' => 'date:Y-m-d',
         'curso_transporte_escolar' => 'boolean',
         'ativo' => 'boolean',
     ];
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(EducaTransportCompany::class, 'company_id');
+    }
 
     public function pessoa(): BelongsTo
     {

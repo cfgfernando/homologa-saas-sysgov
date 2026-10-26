@@ -35,10 +35,17 @@ final class EducaTransportStudentAllocation extends Model
         'data_inicio',
         'data_fim',
         'status',
+        'uses_rural_transport',
+        'public_transport_jurisdiction',
+        'special_needs_transport',
+        'special_needs_notes',
     ];
 
     protected $casts = [
         'aluno_pessoa_id' => 'integer',
+        'public_transport_jurisdiction' => 'integer',
+        'uses_rural_transport' => 'boolean',
+        'special_needs_transport' => 'boolean',
         'data_inicio' => 'date:Y-m-d',
         'data_fim' => 'date:Y-m-d',
     ];

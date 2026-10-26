@@ -47,6 +47,7 @@ final class EducaServiceProvider extends ServiceProvider
         Gate::policy(\Modules\Educa\Models\EducaCensusExport::class, \Modules\Educa\Policies\EducacensoPolicy::class);
         Gate::policy(\Modules\Educa\Models\EducaCensusValidation::class, \Modules\Educa\Policies\EducacensoPolicy::class);
         Gate::policy(\Modules\Educa\Models\EducaCensusInepLog::class, \Modules\Educa\Policies\EducacensoPolicy::class);
+        Gate::policy(\Modules\Educa\Models\EducaTransportCompany::class, \Modules\Educa\Policies\TransportPolicy::class);
         Gate::policy(\Modules\Educa\Models\EducaTransportRoute::class, \Modules\Educa\Policies\TransportPolicy::class);
         Gate::policy(\Modules\Educa\Models\EducaTransportVehicle::class, \Modules\Educa\Policies\TransportPolicy::class);
         Gate::policy(\Modules\Educa\Models\EducaTransportDriver::class, \Modules\Educa\Policies\TransportPolicy::class);

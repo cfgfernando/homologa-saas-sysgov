@@ -17,6 +17,7 @@ use Modules\Educa\Models\EducaEnrollment;
 use Modules\Educa\Models\EducaGrade;
 use Modules\Educa\Models\EducaSchool;
 use Modules\Educa\Models\EducaStudentProfile;
+use Modules\Educa\Models\EducaTransportCompany;
 use Modules\Educa\Models\EducaTransportDriver;
 use Modules\Educa\Models\EducaTransportInspection;
 use Modules\Educa\Models\EducaTransportRoute;
@@ -515,5 +516,110 @@ final class TransporteRoutesAndAllocationTest extends TestCase
         // Confere assento liberado
         $veiculo->refresh();
         $this->assertSame(0, $veiculo->ocupacao_efetiva);
+    }
+
+    public function test_cadastro_e_listagem_de_empresas_terceirizadas_de_transporte(): void
+    {
+        $respCreate = $this->actingAs($this->adminUser)
+            ->postJson('/api/educa/transporte/empresas', [
+                'razao_social' => 'Auto Viação Progresso Escolar Ltda.',
+                'nome_fantasia' => 'Progresso Escolar',
+                'cnpj' => '98.765.432/0001-10',
+                'contract_number' => 'CONTRATO-LIC-2026/099',
+                'contract_start_date' => '2026-02-01',
+                'contract_end_date' => '2026-12-31',
+                'is_active' => true,
+            ], $this->authHeaders);
+
+        $respCreate->assertStatus(201)
+            ->assertJsonPath('data.razao_social', 'Auto Viação Progresso Escolar Ltda.')
+            ->assertJsonPath('data.contract_number', 'CONTRATO-LIC-2026/099');
+
+        $empresaId = $respCreate->json('data.id');
+
+        $respList = $this->actingAs($this->adminUser)
+            ->getJson('/api/educa/transporte/empresas', $this->authHeaders);
+
+        $respList->assertStatus(200)
+            ->assertJsonFragment(['razao_social' => 'Auto Viação Progresso Escolar Ltda.']);
+    }
+
+    public function test_auditoria_registro_60_censo_e_pnate(): void
+    {
+        $rota = EducaTransportRoute::create([
+            'tenant_id' => $this->tenant->id,
+            'codigo' => 'ROTA-CENSO-01',
+            'nome' => 'Linha Rural Censo PNATE',
+            'turno' => 'matutino',
+            'tipo_rota' => 'rural',
+            'academic_year' => 2026,
+            'km_paved' => 10.0,
+            'km_unpaved' => 25.0,
+            'ativo' => true,
+        ]);
+
+        $veiculo = EducaTransportVehicle::create([
+            'tenant_id' => $this->tenant->id,
+            'placa' => 'CNS2026',
+            'marca_modelo' => 'Microonibus Escolar Acessivel',
+            'ano_fabricacao' => 2023,
+            'tipologia' => 'microonibus',
+            'vehicle_type_inep' => 2,
+            'tipo_propriedade' => 'proprio',
+            'capacidade_passageiros' => 20,
+            'ocupacao_efetiva' => 0,
+            'is_exclusive_school_use' => true,
+            'is_accessible_disability' => true,
+            'status' => 'regular',
+        ]);
+
+        $parada = EducaTransportStop::create([
+            'tenant_id' => $this->tenant->id,
+            'route_id' => $rota->id,
+            'ordem' => 1,
+            'nome' => 'Ponto Km 10',
+        ]);
+
+        EducaTransportStudentAllocation::create([
+            'tenant_id' => $this->tenant->id,
+            'route_id' => $rota->id,
+            'vehicle_id' => $veiculo->id,
+            'stop_id' => $parada->id,
+            'enrollment_id' => $this->matricula->id,
+            'aluno_pessoa_id' => $this->pessoaAluno->id,
+            'uses_rural_transport' => true,
+            'public_transport_jurisdiction' => 2,
+            'special_needs_transport' => true,
+            'data_inicio' => Carbon::now()->toDateString(),
+            'status' => 'ativa',
+        ]);
+
+        $respAuditoria = $this->actingAs($this->adminUser)
+            ->getJson('/api/educa/transporte/censo/registro60', $this->authHeaders);
+
+        $respAuditoria->assertStatus(200)
+            ->assertJsonPath('data.ano_letivo', 2026)
+            ->assertJsonPath('data.total_zona_rural', 1)
+            ->assertJsonPath('data.total_atendimento_especial_pcd', 1)
+            ->assertJsonPath('data.total_veiculos_acessiveis_pcd', 1);
+    }
+
+    public function test_consulta_de_ocupacao_e_trava_de_superlotacao_ctb(): void
+    {
+        $rota = EducaTransportRoute::create([
+            'tenant_id' => $this->tenant->id,
+            'codigo' => 'ROTA-OCUP-01',
+            'nome' => 'Linha Teste Ocupacao',
+            'turno' => 'vespertino',
+            'tipo_rota' => 'urbana',
+            'ativo' => true,
+        ]);
+
+        $respOcup = $this->actingAs($this->adminUser)
+            ->getJson("/api/educa/transporte/rotas/{$rota->id}/ocupacao", $this->authHeaders);
+
+        $respOcup->assertStatus(200)
+            ->assertJsonPath('data.route_id', $rota->id)
+            ->assertJsonPath('data.status_lotacao', 'conforme');
     }
 }

@@ -30,6 +30,11 @@ final class TransportPolicy
             || $this->checkPermission($user, 'educa.transporte.alocacoes.view');
     }
 
+    public function manage(User $user): bool
+    {
+        return $this->checkPermission($user, 'educa.transporte.manage');
+    }
+
     public function viewRotas(User $user): bool
     {
         return $this->checkPermission($user, 'educa.transporte.rotas.view')

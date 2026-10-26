@@ -38,22 +38,35 @@ final class EducaTransportVehicle extends Model
 
     protected $fillable = [
         'tenant_id',
+        'company_id',
         'placa',
         'renavam',
+        'chassis',
         'marca_modelo',
         'ano_fabricacao',
         'tipologia',
+        'vehicle_type_inep',
         'tipo_propriedade',
         'capacidade_passageiros',
         'ocupacao_efetiva',
         'status',
+        'is_exclusive_school_use',
+        'is_accessible_disability',
     ];
 
     protected $casts = [
         'ano_fabricacao' => 'integer',
+        'vehicle_type_inep' => 'integer',
         'capacidade_passageiros' => 'integer',
         'ocupacao_efetiva' => 'integer',
+        'is_exclusive_school_use' => 'boolean',
+        'is_accessible_disability' => 'boolean',
     ];
+
+    public function company(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(EducaTransportCompany::class, 'company_id');
+    }
 
     public function inspections(): HasMany
     {
@@ -84,6 +97,11 @@ final class EducaTransportVehicle extends Model
 
         return $ultima->resultado === EducaTransportInspection::RESULTADO_APROVADO
             && Carbon::parse($ultima->data_validade)->isFuture();
+    }
+
+    public function hasVistoriaValida(): bool
+    {
+        return $this->temVistoriaValida();
     }
 
     /**
