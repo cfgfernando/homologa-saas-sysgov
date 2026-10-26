@@ -34,6 +34,12 @@ use Modules\Educa\Models\EducaMenuItem;
 use Modules\Educa\Models\EducaSchool;
 use Modules\Educa\Models\EducaSchoolClass;
 use Modules\Educa\Models\EducaStudentGrade;
+use Modules\Educa\Models\EducaTransportDriver;
+use Modules\Educa\Models\EducaTransportInspection;
+use Modules\Educa\Models\EducaTransportRoute;
+use Modules\Educa\Models\EducaTransportStop;
+use Modules\Educa\Models\EducaTransportStudentAllocation;
+use Modules\Educa\Models\EducaTransportVehicle;
 use Modules\OrgChart\Models\OrgUnit;
 use Modules\Pessoas\Models\Pessoa;
 use Modules\Pessoas\Support\Documento;
@@ -392,6 +398,207 @@ final class EducaDemonstracaoSeeder extends Seeder
                     'status' => 'em_andamento',
                 ]
             );
+
+            // ==========================================
+            // 8. Transporte Escolar (Rotas, Veículos, Condutores e Alocações)
+            // ==========================================
+            $condutorPessoa = Pessoa::firstOrCreate(
+                ['tenant_id' => $tId, 'documento_hash' => Documento::hash('44455566677')],
+                [
+                    'tipo' => 'FISICA',
+                    'nome' => 'Sebastião Moreira Neto',
+                    'nome_social' => 'Tião do Ônibus',
+                    'documento' => '444.555.666-77',
+                    'email' => 'tiao.transporte@gov.local',
+                    'status' => 'ATIVO',
+                ]
+            );
+
+            $motorista = EducaTransportDriver::firstOrCreate(
+                ['tenant_id' => $tId, 'pessoa_id' => $condutorPessoa->id, 'tipo_funcao' => 'motorista'],
+                [
+                    'cnh_numero' => '12345678900',
+                    'cnh_categoria' => 'D',
+                    'cnh_validade' => Carbon::now()->addYears(2),
+                    'curso_transporte_escolar' => true,
+                    'validade_curso' => Carbon::now()->addYears(3),
+                    'ativo' => true,
+                ]
+            );
+
+            $monitorPessoa = Pessoa::firstOrCreate(
+                ['tenant_id' => $tId, 'documento_hash' => Documento::hash('55566677788')],
+                [
+                    'tipo' => 'FISICA',
+                    'nome' => 'Valdomiro Pereira',
+                    'documento' => '555.666.777-88',
+                    'email' => 'valdomiro.monitor@gov.local',
+                    'status' => 'ATIVO',
+                ]
+            );
+
+            $monitor = EducaTransportDriver::firstOrCreate(
+                ['tenant_id' => $tId, 'pessoa_id' => $monitorPessoa->id, 'tipo_funcao' => 'monitor'],
+                [
+                    'curso_transporte_escolar' => true,
+                    'validade_curso' => Carbon::now()->addYears(2),
+                    'ativo' => true,
+                ]
+            );
+
+            $veiculoRural = EducaTransportVehicle::firstOrCreate(
+                ['tenant_id' => $tId, 'placa' => 'BRA2E19'],
+                [
+                    'renavam' => '00987654321',
+                    'marca_modelo' => 'Mercedes-Benz / Marcopolo Volare V8 Escolar',
+                    'ano_fabricacao' => 2022,
+                    'tipologia' => 'microonibus',
+                    'tipo_propriedade' => 'proprio',
+                    'capacidade_passageiros' => 24,
+                    'ocupacao_efetiva' => 1,
+                    'status' => 'regular',
+                ]
+            );
+
+            EducaTransportInspection::firstOrCreate(
+                ['tenant_id' => $tId, 'vehicle_id' => $veiculoRural->id, 'numero_laudo' => 'DETRAN-2026-VIST-089'],
+                [
+                    'orgao_emissor' => 'DETRAN/CIRETRAN',
+                    'data_vistoria' => Carbon::now()->subMonths(1),
+                    'data_validade' => Carbon::now()->addMonths(5),
+                    'resultado' => 'aprovado',
+                    'observacoes' => 'Cintos de segurança de 3 pontos, tacógrafo selado e extintor regulares. Aprovado para transporte escolar.',
+                ]
+            );
+
+            $veiculoUrbano = EducaTransportVehicle::firstOrCreate(
+                ['tenant_id' => $tId, 'placa' => 'SYG4040'],
+                [
+                    'renavam' => '00123456789',
+                    'marca_modelo' => 'Mercedes-Benz / Caio Apache VIP V',
+                    'ano_fabricacao' => 2023,
+                    'tipologia' => 'onibus',
+                    'tipo_propriedade' => 'terceirizado',
+                    'capacidade_passageiros' => 44,
+                    'ocupacao_efetiva' => 0,
+                    'status' => 'regular',
+                ]
+            );
+
+            EducaTransportInspection::firstOrCreate(
+                ['tenant_id' => $tId, 'vehicle_id' => $veiculoUrbano->id, 'numero_laudo' => 'DETRAN-2026-VIST-112'],
+                [
+                    'orgao_emissor' => 'DETRAN/CIRETRAN',
+                    'data_vistoria' => Carbon::now()->subMonths(2),
+                    'data_validade' => Carbon::now()->addMonths(4),
+                    'resultado' => 'aprovado',
+                    'observacoes' => 'Vistoria semestral de segurança veicular e itens obrigatórios 100% conforme CTB.',
+                ]
+            );
+
+            $rotaRural = EducaTransportRoute::firstOrCreate(
+                ['tenant_id' => $tId, 'codigo' => 'ROTA-RURAL-01'],
+                [
+                    'nome' => 'Linha Água Limpa → Sede Municipal (Escola Polo)',
+                    'turno' => 'matutino',
+                    'tipo_rota' => 'rural',
+                    'quilometragem_estimada' => 38.5,
+                    'horario_saida' => '06:15',
+                    'horario_chegada' => '07:10',
+                    'ativo' => true,
+                ]
+            );
+
+            $rotaUrbana = EducaTransportRoute::firstOrCreate(
+                ['tenant_id' => $tId, 'codigo' => 'ROTA-URB-02'],
+                [
+                    'nome' => 'Linha Bairro Esperança → Complexo Educacional Norte',
+                    'turno' => 'vespertino',
+                    'tipo_rota' => 'urbana',
+                    'quilometragem_estimada' => 14.2,
+                    'horario_saida' => '12:15',
+                    'horario_chegada' => '12:55',
+                    'ativo' => true,
+                ]
+            );
+
+            // Vinculação de escolas atendidas pelas rotas
+            DB::table('educa_transport_route_schools')->updateOrInsert(
+                ['route_id' => $rotaRural->id, 'school_id' => $escola->id],
+                ['created_at' => now(), 'updated_at' => now()]
+            );
+
+            DB::table('educa_transport_route_schools')->updateOrInsert(
+                ['route_id' => $rotaUrbana->id, 'school_id' => $escola->id],
+                ['created_at' => now(), 'updated_at' => now()]
+            );
+
+            // Paradas / Pontos de Embarque
+            $pontoRural1 = EducaTransportStop::firstOrCreate(
+                ['tenant_id' => $tId, 'route_id' => $rotaRural->id, 'ordem' => 1],
+                [
+                    'nome' => 'Ponto 01 - Comunidade da Barra Funda',
+                    'referencia' => 'Em frente à Igreja São José',
+                    'latitude' => -23.5505,
+                    'longitude' => -46.6333,
+                    'horario_estimado' => '06:20',
+                ]
+            );
+
+            $pontoRural2 = EducaTransportStop::firstOrCreate(
+                ['tenant_id' => $tId, 'route_id' => $rotaRural->id, 'ordem' => 2],
+                [
+                    'nome' => 'Ponto 02 - Trevo da Fazenda Primavera',
+                    'referencia' => 'Entrada da estrada vicinal KM 12',
+                    'horario_estimado' => '06:40',
+                ]
+            );
+
+            $pontoRural3 = EducaTransportStop::firstOrCreate(
+                ['tenant_id' => $tId, 'route_id' => $rotaRural->id, 'ordem' => 3],
+                [
+                    'nome' => 'Ponto 03 - Portão Principal da Escola Polo',
+                    'referencia' => 'Área de desembarque coberta',
+                    'horario_estimado' => '07:10',
+                ]
+            );
+
+            EducaTransportStop::firstOrCreate(
+                ['tenant_id' => $tId, 'route_id' => $rotaUrbana->id, 'ordem' => 1],
+                [
+                    'nome' => 'Ponto 01 - Praça do Bairro Esperança',
+                    'referencia' => 'Ao lado do Posto de Saúde da Família',
+                    'horario_estimado' => '12:20',
+                ]
+            );
+
+            EducaTransportStop::firstOrCreate(
+                ['tenant_id' => $tId, 'route_id' => $rotaUrbana->id, 'ordem' => 2],
+                [
+                    'nome' => 'Ponto 02 - Terminal de Desembarque Escolar',
+                    'referencia' => 'Entrada de alunos',
+                    'horario_estimado' => '12:50',
+                ]
+            );
+
+            // Alocação de Aluno no Transporte
+            if (! empty($matriculas)) {
+                $primeiraMatricula = $matriculas[0];
+                EducaTransportStudentAllocation::firstOrCreate(
+                    [
+                        'tenant_id' => $tId,
+                        'route_id' => $rotaRural->id,
+                        'enrollment_id' => $primeiraMatricula->id,
+                    ],
+                    [
+                        'vehicle_id' => $veiculoRural->id,
+                        'stop_id' => $pontoRural1->id,
+                        'aluno_pessoa_id' => $primeiraMatricula->student_id,
+                        'data_inicio' => Carbon::now()->startOfYear(),
+                        'status' => 'ativa',
+                    ]
+                );
+            }
 
             $this->command?->info('✓ Carga de demonstração do SYS-Educa concluída com sucesso!');
         });
