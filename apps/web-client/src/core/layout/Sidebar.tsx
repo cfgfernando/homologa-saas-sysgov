@@ -5,6 +5,7 @@ import { useTenant } from '@/core/tenant/useTenant';
 import { useOrgUnit } from '@/core/orgunit';
 import { useCan } from '@/core/rbac/useCan';
 import { getIcon } from '@/config/iconMap';
+import { iconeDoItem } from '@/config/menuIcon';
 import { MenuItem, MenuGroup } from '@sysgov/sdk';
 import { X, ChevronRight, ChevronDown, LogOut, ShieldCheck, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -121,9 +122,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <span className="uppercase tracking-wider font-bold text-xs sm:text-sm text-[#0c326f]" style={{ fontWeight: 800 }}>
             Navegação do Sistema
           </span>
-          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white text-[#0c326f] border border-[#C5D8F6]">
-            Padrão Gov.br
-          </span>
         </div>
 
         {/* Seletor de Secretaria / Departamento */}
@@ -198,7 +196,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   <div className="pt-1 space-y-1">
                     {group.items.map((item) => {
                       const isActive = location.pathname === item.route;
-                      const ItemIcon = getIcon(item.icon);
+                      const ItemIcon = getIcon(iconeDoItem(item));
                       const children = (item as any).children || [];
                       const hasChildren = children.length > 0;
                       const isItemExpanded = expandedItems.has(item.id);
@@ -317,9 +315,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               <span className="font-bold text-[#0c326f]">
                 <span className="text-[#0c326f]">SYS</span>
                 <span className="text-[#10b981]"> GOV</span>
-              </span>
-              <span className="block text-[11px] text-[#0c326f] font-mono mt-0.5 font-bold tracking-wider">
-                PADRÃO DIGITAL GOV.BR • TEMPLATE BASE
               </span>
             </div>
           )}

@@ -78,7 +78,7 @@ final class RegisterModuleCommand extends Command
             }
 
             // 4. Criar/Atualizar itens no menu do cliente (Painel do Tenant / client_menu_items)
-            $this->registerClientMenu($moduleConfig, $dryRun);
+            $this->registerClientMenu($moduleConfig, $force, $dryRun);
 
             $this->info("✓ Módulo '{$moduleName}' registrado com sucesso!");
             $this->info("  - Catálogo: {$platformModule->name} (alias: {$platformModule->alias})");
@@ -225,7 +225,7 @@ final class RegisterModuleCommand extends Command
     }
 
     /** @param array<string, mixed> $config */
-    private function registerClientMenu(array $config, bool $dryRun): void
+    private function registerClientMenu(array $config, bool $force, bool $dryRun): void
     {
         $alias = $config['alias'] ?? '';
         if (!$alias) {
@@ -242,6 +242,16 @@ final class RegisterModuleCommand extends Command
         if ($dryRun) {
             $this->info("  [DRY-RUN] Menu Cliente: {$label} ({$route}) no grupo {$groupName}");
             return;
+        }
+
+        // Este comando roda a cada boot do container. Se o módulo já tem entrada no menu em outra rota (ex.: /contratos,
+        // a rota do web-client), criar a entrada de /{alias} duplicaria o módulo na tela.
+        if (!$force && !ClientMenuItem::query()->where('route', $route)->exists()) {
+            $existentes = ClientMenuItem::query()->where('module_alias', $alias)->whereNull('parent_id')->pluck('route');
+            if ($existentes->isNotEmpty()) {
+                $this->info("  Menu Cliente: '{$alias}' já tem entrada no menu ({$existentes->implode(', ')}) — não cria outra em {$route}. Use --force para criar mesmo assim.");
+                return;
+            }
         }
 
         // Procura grupo padrão de cliente por slug ou nome
