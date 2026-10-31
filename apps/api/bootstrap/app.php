@@ -39,6 +39,7 @@ use Modules\Pessoas\Providers\PessoasServiceProvider;
 use Modules\Procurement\Providers\ProcurementServiceProvider;
 use Modules\Protocolo\Providers\ProtocoloServiceProvider;
 use Modules\Requerimentos\Providers\RequerimentosServiceProvider;
+use Modules\Transport\Providers\TransportServiceProvider;
 use Modules\Vistoria\Providers\VistoriaServiceProvider;
 use Laravel\Tinker\TinkerServiceProvider;
 
@@ -72,6 +73,7 @@ return Application::configure(basePath: dirname(__DIR__))
         ProcurementServiceProvider::class,
         ProtocoloServiceProvider::class,
         RequerimentosServiceProvider::class,
+        TransportServiceProvider::class,
         VistoriaServiceProvider::class,
         TinkerServiceProvider::class,
         \App\Providers\AuthServiceProvider::class,
