@@ -16,3 +16,4 @@ final class RouteServiceProvider extends ServiceProvider
             ->group(__DIR__ . '/../Routes/api.php');
     }
 }
+

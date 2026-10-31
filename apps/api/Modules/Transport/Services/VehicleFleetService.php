@@ -54,3 +54,4 @@ final class VehicleFleetService
         return $currentAllocations < $vehicle->capacity_seats;
     }
 }
+

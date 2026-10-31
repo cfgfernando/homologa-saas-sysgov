@@ -23,3 +23,4 @@ final class TransportCostParameter extends Model
         'driver_salary_cents' => 'integer',
     ];
 }
+

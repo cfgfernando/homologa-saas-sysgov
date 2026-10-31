@@ -57,6 +57,27 @@ final class MaintenanceController extends Controller
         return response()->json(['data' => TransportMaintenanceOrder::with('vehicle')->findOrFail($id)]);
     }
 
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $order = TransportMaintenanceOrder::findOrFail($id);
+        $before = $order->toArray();
+
+        $data = $request->validate([
+            'vehicle_id' => ['sometimes', 'required', 'exists:transport_vehicles,id'],
+            'service_type' => ['sometimes', 'required', 'string', 'in:preventive,corrective,tires,oil_change,inspection'],
+            'amount_cents' => ['sometimes', 'required', 'integer', 'min:0'],
+            'odometer_km' => ['sometimes', 'required', 'integer', 'min:0'],
+            'service_date' => ['sometimes', 'required', 'date'],
+            'notes' => ['nullable', 'string'],
+        ]);
+
+        $order->update($data);
+
+        $this->audit->record('transporte', 'update', 'maintenance_order:' . $order->id, $before, $order->fresh()->toArray());
+
+        return response()->json(['data' => $order->fresh()->load('vehicle')]);
+    }
+
     public function destroy(string $id): JsonResponse
     {
         $order = TransportMaintenanceOrder::findOrFail($id);

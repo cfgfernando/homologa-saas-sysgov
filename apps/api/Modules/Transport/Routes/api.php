@@ -10,14 +10,16 @@ use Modules\Transport\Http\Controllers\DriverController;
 use Modules\Transport\Http\Controllers\MaintenanceController;
 use Modules\Transport\Http\Controllers\MonitorController;
 use Modules\Transport\Http\Controllers\RouteController;
+use Modules\Transport\Http\Controllers\SchoolController;
 use Modules\Transport\Http\Controllers\SupplierController;
 use Modules\Transport\Http\Controllers\VehicleController;
 
-Route::get('/health', fn () => response()->json(['status' => 'ok', 'module' => 'Transport']));
+Route::get('/health', fn() => response()->json(['status' => 'ok', 'module' => 'Transport']));
 
+// Dashboard e Indicadores Executivos
 Route::get('/dashboard', [DashboardController::class, 'index'])->name('transport.dashboard');
 
-// Vehicles (Frota Escolar)
+// Vehicles (Frota Escolar CTB Art. 136)
 Route::prefix('vehicles')->group(function (): void {
     Route::get('/', [VehicleController::class, 'index'])->name('transport.vehicles.index');
     Route::post('/', [VehicleController::class, 'store'])->name('transport.vehicles.store');
@@ -40,33 +42,36 @@ Route::prefix('monitors')->group(function (): void {
     Route::get('/', [MonitorController::class, 'index'])->name('transport.monitors.index');
     Route::post('/', [MonitorController::class, 'store'])->name('transport.monitors.store');
     Route::get('/{id}', [MonitorController::class, 'show'])->name('transport.monitors.show');
+    Route::put('/{id}', [MonitorController::class, 'update'])->name('transport.monitors.update');
     Route::delete('/{id}', [MonitorController::class, 'destroy'])->name('transport.monitors.destroy');
 });
 
-// Suppliers (Fornecedores e Terceirizados)
+// Suppliers (Fornecedores e Oficinas)
 Route::prefix('suppliers')->group(function (): void {
     Route::get('/', [SupplierController::class, 'index'])->name('transport.suppliers.index');
     Route::post('/', [SupplierController::class, 'store'])->name('transport.suppliers.store');
     Route::get('/{id}', [SupplierController::class, 'show'])->name('transport.suppliers.show');
+    Route::put('/{id}', [SupplierController::class, 'update'])->name('transport.suppliers.update');
     Route::delete('/{id}', [SupplierController::class, 'destroy'])->name('transport.suppliers.destroy');
 });
 
-// Maintenance (Ordens de Serviço)
+// Maintenance (Ordens de Serviço de Manutenção)
 Route::prefix('maintenance-orders')->group(function (): void {
     Route::get('/', [MaintenanceController::class, 'index'])->name('transport.maintenance.index');
     Route::post('/', [MaintenanceController::class, 'store'])->name('transport.maintenance.store');
     Route::get('/{id}', [MaintenanceController::class, 'show'])->name('transport.maintenance.show');
+    Route::put('/{id}', [MaintenanceController::class, 'update'])->name('transport.maintenance.update');
     Route::delete('/{id}', [MaintenanceController::class, 'destroy'])->name('transport.maintenance.destroy');
 });
 
-// Costs (Cálculo de Custos e Parâmetros)
+// Costs (Cálculo de Custos e Parâmetros Operacionais)
 Route::prefix('costs')->group(function (): void {
     Route::get('/parameters', [CostController::class, 'getParameters'])->name('transport.costs.parameters');
     Route::put('/parameters', [CostController::class, 'updateParameters'])->name('transport.costs.update-parameters');
     Route::get('/calculate', [CostController::class, 'calculateRoutes'])->name('transport.costs.calculate');
 });
 
-// Routes (Rotas e Itinerários)
+// Routes (Rotas e Traçados Georreferenciados)
 Route::prefix('routes')->group(function (): void {
     Route::get('/', [RouteController::class, 'index'])->name('transport.routes.index');
     Route::post('/', [RouteController::class, 'store'])->name('transport.routes.store');
@@ -80,5 +85,15 @@ Route::prefix('allocations')->group(function (): void {
     Route::get('/', [AllocationController::class, 'index'])->name('transport.allocations.index');
     Route::post('/', [AllocationController::class, 'store'])->name('transport.allocations.store');
     Route::get('/{id}', [AllocationController::class, 'show'])->name('transport.allocations.show');
+    Route::put('/{id}', [AllocationController::class, 'update'])->name('transport.allocations.update');
     Route::delete('/{id}', [AllocationController::class, 'destroy'])->name('transport.allocations.destroy');
+});
+
+// Schools (Unidades Escolares Atendidas)
+Route::prefix('schools')->group(function (): void {
+    Route::get('/', [SchoolController::class, 'index'])->name('transport.schools.index');
+    Route::post('/', [SchoolController::class, 'store'])->name('transport.schools.store');
+    Route::get('/{id}', [SchoolController::class, 'show'])->name('transport.schools.show');
+    Route::put('/{id}', [SchoolController::class, 'update'])->name('transport.schools.update');
+    Route::delete('/{id}', [SchoolController::class, 'destroy'])->name('transport.schools.destroy');
 });

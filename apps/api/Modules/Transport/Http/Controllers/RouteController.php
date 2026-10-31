@@ -125,3 +125,4 @@ final class RouteController extends Controller
         return response()->json(['message' => 'Rota excluída com sucesso.'], 200);
     }
 }
+

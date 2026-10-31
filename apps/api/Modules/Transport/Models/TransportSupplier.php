@@ -19,3 +19,4 @@ final class TransportSupplier extends Model
         'is_active' => 'boolean',
     ];
 }
+

@@ -189,3 +189,4 @@ CREATE TABLE transport_maintenance_orders (
 - **Biblioteca:** Componentes de `@sysgov/ui` (`Button`, `Card`, `Badge`, `Modal`, `Table`, `Select`, `Input`).
 - **Padrão Tipográfico:** Dados numéricos, placas, códigos, quilometragens, valores monetários (R$) e datas formatados obrigatoriamente com `JetBrains Mono` (`font-mono tabular-nums`).
 - **Cartografia:** Componente de mapas em Leaflet/MapLibre para visualização e desenho de traçados georreferenciados (GeoJSON).
+

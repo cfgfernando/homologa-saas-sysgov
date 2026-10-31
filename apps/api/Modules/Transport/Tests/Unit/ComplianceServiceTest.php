@@ -64,7 +64,7 @@ final class ComplianceServiceTest extends TestCase
     public function test_pnate_eligibility_requires_rural_zone_and_minimum_distance(): void
     {
         $service = new PnateEligibilityService();
-        
+
         // Ponto de parada rural (Fazenda Santa Luzia, Goiânia rural)
         $ruralStop = new TransportStop();
         $ruralStop->zone_type = 'rural';

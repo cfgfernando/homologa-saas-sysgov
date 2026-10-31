@@ -31,3 +31,4 @@ final class TransportMonitor extends Model
         return $this->belongsTo(TransportRoute::class, 'assigned_route_id');
     }
 }
+

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   CardHeader,
@@ -26,9 +26,47 @@ import {
   Bus,
   ShieldCheck,
 } from 'lucide-react';
+import { apiClient } from '@/core/api/client';
 
 export const ReportAndCensusPage: React.FC = () => {
   const [selectedReport, setSelectedReport] = useState('call_list');
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [selectedRouteId, setSelectedRouteId] = useState<number | null>(null);
+  const [students, setStudents] = useState<any[]>([]);
+
+  const fetchRoutes = async () => {
+    try {
+      const res = await apiClient.get('/transport/routes');
+      if (res.data && Array.isArray(res.data.data)) {
+        setRoutes(res.data.data);
+        if (res.data.data.length > 0) {
+          setSelectedRouteId(res.data.data[0].id);
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  const fetchAllocations = async () => {
+    try {
+      const res = await apiClient.get('/transport/allocations');
+      if (res.data && Array.isArray(res.data.data)) {
+        setStudents(res.data.data);
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  useEffect(() => {
+    fetchRoutes();
+    fetchAllocations();
+  }, []);
+
+  const currentRoute = routes.find((r) => r.id === selectedRouteId) || routes[0];
+  const routeStudents = students.filter((s) => !selectedRouteId || s.route_id === selectedRouteId);
+  const pnateEligibleCount = students.filter((s) => Boolean(s.census_eligible_pnate)).length;
 
   return (
     <div className="space-y-6">
@@ -126,54 +164,73 @@ export const ReportAndCensusPage: React.FC = () => {
       {/* Conteúdo do Relatório Selecionado */}
       {selectedReport === 'call_list' && (
         <Card className="border border-slate-200 dark:border-slate-800 shadow-sm">
-          <CardHeader className="py-3 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-semibold">
-              Lista de Chamada Diária — ROTA-RUR-01 (Turno Matutino)
-            </CardTitle>
+          <CardHeader className="py-3 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <CardTitle className="text-sm font-semibold">
+                Lista de Chamada Diária — {currentRoute ? `${currentRoute.code} - ${currentRoute.name}` : 'Todas as Rotas'}
+              </CardTitle>
+              {currentRoute && (
+                <div className="text-xs text-slate-500 font-mono mt-1">
+                  Veículo: {currentRoute.vehicle?.plate || 'Designado'} | Tipo: {currentRoute.route_type}
+                </div>
+              )}
+            </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" variant="outline" className="text-xs flex items-center gap-1.5 font-mono">
+              {routes.length > 0 && (
+                <div className="w-48">
+                  <Select
+                    value={String(selectedRouteId || '')}
+                    onChange={(val: any) => setSelectedRouteId(Number(val))}
+                    options={routes.map((r) => ({
+                      value: String(r.id),
+                      label: `${r.code} - ${r.name}`,
+                    }))}
+                  />
+                </div>
+              )}
+              <Button size="sm" variant="outline" onClick={() => window.print()} className="text-xs flex items-center gap-1.5 font-mono">
                 <Printer className="w-3.5 h-3.5" />
-                Imprimir Lista
-              </Button>
-              <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 font-mono">
-                <Download className="w-3.5 h-3.5" />
-                Exportar PDF
+                Imprimir
               </Button>
             </div>
           </CardHeader>
           <CardContent className="p-4 space-y-4">
-            <div className="text-xs text-slate-500 font-mono">
-              Condutor: Carlos Alberto Silva (CNH: 01928374650) | Veículo: BRA2E19 (Capacidade: 44 lug.)
-            </div>
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50 dark:bg-slate-900/50">
                   <TableHead className="text-xs font-semibold">Nº</TableHead>
                   <TableHead className="text-xs font-semibold">NOME DO ESTUDANTE</TableHead>
                   <TableHead className="text-xs font-semibold">PONTO DE EMBARQUE</TableHead>
-                  <TableHead className="text-xs font-semibold">ESCOLA DESTINO</TableHead>
+                  <TableHead className="text-xs font-semibold">TURNO</TableHead>
                   <TableHead className="text-xs font-semibold text-center">EMBARCOU</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell className="font-mono text-xs tabular-nums">01</TableCell>
-                  <TableCell className="text-xs font-medium">Bernardo Alves Santos</TableCell>
-                  <TableCell className="text-xs">Comunidade São João (06:30)</TableCell>
-                  <TableCell className="text-xs">Escola Municipal Castro Alves</TableCell>
-                  <TableCell className="text-center">
-                    <input type="checkbox" defaultChecked className="rounded border-slate-300 text-emerald-600" />
-                  </TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-mono text-xs tabular-nums">02</TableCell>
-                  <TableCell className="text-xs font-medium">Beatriz Castro Ferreira</TableCell>
-                  <TableCell className="text-xs">Fazenda Boa Vista (06:50)</TableCell>
-                  <TableCell className="text-xs">Escola Municipal Castro Alves</TableCell>
-                  <TableCell className="text-center">
-                    <input type="checkbox" defaultChecked className="rounded border-slate-300 text-emerald-600" />
-                  </TableCell>
-                </TableRow>
+                {routeStudents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-6 text-xs text-slate-500">
+                      Nenhum estudante alocado nesta rota.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  routeStudents.map((st, idx) => (
+                    <TableRow key={st.id}>
+                      <TableCell className="font-mono text-xs tabular-nums font-semibold">{String(idx + 1).padStart(2, '0')}</TableCell>
+                      <TableCell className="text-xs font-medium text-slate-900 dark:text-slate-100">
+                        {st.pessoa?.nome || 'Estudante ' + st.id}
+                      </TableCell>
+                      <TableCell className="text-xs text-slate-600 dark:text-slate-400">
+                        {st.stop?.name || st.pickup_stop?.name || 'Ponto de Parada'}
+                      </TableCell>
+                      <TableCell className="text-xs capitalize text-slate-600 dark:text-slate-400">
+                        {st.shift || 'Matutino'}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <input type="checkbox" defaultChecked className="rounded border-slate-300 text-emerald-600" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -210,15 +267,37 @@ export const ReportAndCensusPage: React.FC = () => {
             <CardTitle className="text-sm font-semibold">
               Demonstrativo de Alunos Elegíveis ao PNATE / FNDE (Exercício 2026)
             </CardTitle>
-            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 font-mono">
+            <Button size="sm" onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 font-mono">
               <Download className="w-3.5 h-3.5" />
               Exportar Demonstrativo FNDE
             </Button>
           </CardHeader>
           <CardContent className="p-4 space-y-3">
             <div className="text-xs text-slate-600 dark:text-slate-300">
-              Total de alunos da zona rural com trajeto geodésico casa-escola superior a 2,0 km: <strong className="font-mono text-emerald-600">488 alunos</strong>.
+              Total de alunos da rede escolar cadastrados: <strong className="font-mono text-slate-900 dark:text-slate-100">{students.length} alunos</strong>.
             </div>
+            <div className="text-xs text-slate-600 dark:text-slate-300">
+              Total de alunos elegíveis ao PNATE (zona rural e percurso &gt; 2 km): <strong className="font-mono text-emerald-600 font-bold">{pnateEligibleCount} alunos</strong>.
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {selectedReport === 'fleet' && (
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-sm">
+          <CardHeader className="py-3 px-4 border-b border-slate-200 dark:border-slate-800 flex flex-row items-center justify-between">
+            <CardTitle className="text-sm font-semibold">
+              Relatório de Conformidade CTB Art. 136 — Vistorias e Tacógrafos
+            </CardTitle>
+            <Button size="sm" onClick={() => window.print()} className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5 font-mono">
+              <Printer className="w-3.5 h-3.5" />
+              Imprimir Vistorias
+            </Button>
+          </CardHeader>
+          <CardContent className="p-4">
+            <p className="text-xs text-slate-600 dark:text-slate-400">
+              Emitido para apresentação junto aos órgãos de fiscalização de trânsito (Detran e Polícia Rodoviária), comprovando a regularidade das vistorias semestrais da frota escolar.
+            </p>
           </CardContent>
         </Card>
       )}

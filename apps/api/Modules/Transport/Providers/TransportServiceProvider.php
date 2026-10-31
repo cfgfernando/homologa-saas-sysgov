@@ -22,3 +22,4 @@ final class TransportServiceProvider extends ServiceProvider
         $this->loadMigrationsFrom(__DIR__ . '/../Database/Migrations');
     }
 }
+

@@ -19,22 +19,37 @@ final class RouteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'max:30'],
-            'name' => ['required', 'string', 'max:100'],
-            'shift' => ['required', 'string', 'in:morning,afternoon,evening,full_time'],
+            'code' => ['required', 'string', 'max:50'],
+            'name' => ['required', 'string', 'max:150'],
+            'shift' => ['required', 'string', 'in:morning,afternoon,night,full_day'],
             'route_type' => ['required', 'string', 'in:rural,urban,mixed'],
-            'vehicle_id' => ['nullable', 'exists:transport_vehicles,id'],
-            'driver_id' => ['nullable', 'exists:transport_drivers,id'],
-            'start_location_name' => ['nullable', 'string', 'max:150'],
-            'start_latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'start_longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'end_location_name' => ['nullable', 'string', 'max:150'],
-            'end_latitude' => ['nullable', 'numeric', 'between:-90,90'],
-            'end_longitude' => ['nullable', 'numeric', 'between:-180,180'],
-            'distance_km' => ['nullable', 'numeric', 'min:0'],
+            'assigned_vehicle_id' => ['nullable', 'exists:transport_vehicles,id'],
+            'assigned_driver_id' => ['nullable', 'exists:transport_drivers,id'],
+            'distance_paved_km' => ['nullable', 'numeric', 'min:0'],
+            'distance_unpaved_km' => ['nullable', 'numeric', 'min:0'],
             'estimated_duration_minutes' => ['nullable', 'integer', 'min:0'],
-            'status' => ['nullable', 'string', 'in:active,inactive,suspended'],
-            'waypoints_geojson' => ['nullable'],
+            'shape_geojson' => ['nullable'],
+            'is_active' => ['nullable', 'boolean'],
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('vehicle_id') && !$this->has('assigned_vehicle_id')) {
+            $this->merge(['assigned_vehicle_id' => $this->input('vehicle_id')]);
+        }
+        if ($this->has('driver_id') && !$this->has('assigned_driver_id')) {
+            $this->merge(['assigned_driver_id' => $this->input('driver_id')]);
+        }
+        if ($this->has('distance_km') && !$this->has('distance_paved_km')) {
+            $this->merge(['distance_paved_km' => (float) $this->input('distance_km')]);
+        }
+        if ($this->has('waypoints_geojson') && !$this->has('shape_geojson')) {
+            $val = $this->input('waypoints_geojson');
+            $this->merge(['shape_geojson' => is_string($val) ? $val : json_encode($val)]);
+        }
+        if ($this->has('status') && !$this->has('is_active')) {
+            $this->merge(['is_active' => $this->input('status') === 'active']);
+        }
     }
 }

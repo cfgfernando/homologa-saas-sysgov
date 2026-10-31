@@ -123,3 +123,4 @@ final class VehicleController extends Controller
         return response()->json(['message' => 'Veículo excluído com sucesso.'], 200);
     }
 }
+

@@ -1,9 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Table,
   TableHeader,
   TableRow,
@@ -14,6 +11,7 @@ import {
   Button,
   Input,
   Select,
+  Modal,
 } from '@sysgov/ui';
 import {
   Bus,
@@ -21,12 +19,14 @@ import {
   Search,
   CheckCircle2,
   AlertTriangle,
-  XCircle,
+  Pencil,
+  Trash2,
   Accessibility,
-  Calendar,
   Shield,
-  Wrench,
+  Save,
+  AlertCircle,
 } from 'lucide-react';
+import { apiClient } from '@/core/api/client';
 
 interface VehicleRecord {
   id: number;
@@ -47,99 +47,118 @@ interface VehicleRecord {
   status: 'active' | 'maintenance' | 'decommissioned';
 }
 
-const mockFleet: VehicleRecord[] = [
-  {
-    id: 1,
-    code: 'VEIC-001',
-    plate: 'BRA2E19',
-    renavam: '00987654321',
-    chassis: '9BWZZZ377VT004123',
-    brand: 'Mercedes-Benz',
-    model: 'OF-1519 Ônibus Rural Escolar (ORE 3)',
-    year_manufacture: 2022,
-    year_model: 2023,
-    capacity_seats: 44,
-    vehicle_type: 'bus',
-    ownership_type: 'owned',
-    accessibility_adapted: true,
-    detran_inspection_due_date: '2026-12-15',
-    crlv_due_date: '2027-04-30',
-    status: 'active',
-  },
-  {
-    id: 2,
-    code: 'VEIC-002',
-    plate: 'RKS8C44',
-    renavam: '00123456789',
-    chassis: '9BWZZZ377VT009845',
-    brand: 'Volkswagen',
-    model: 'Volksbus 8.160 ODR (ORE 1)',
-    year_manufacture: 2021,
-    year_model: 2022,
-    capacity_seats: 29,
-    vehicle_type: 'microbus',
-    ownership_type: 'owned',
-    accessibility_adapted: true,
-    detran_inspection_due_date: '2026-11-10',
-    crlv_due_date: '2027-05-15',
-    status: 'active',
-  },
-  {
-    id: 3,
-    code: 'VEIC-003',
-    plate: 'PQT4A12',
-    renavam: '00456123789',
-    chassis: '8AFZZZ377VT001122',
-    brand: 'Iveco',
-    model: 'Daily Minibus 50-170',
-    year_manufacture: 2020,
-    year_model: 2020,
-    capacity_seats: 19,
-    vehicle_type: 'van',
-    ownership_type: 'contracted',
-    accessibility_adapted: false,
-    detran_inspection_due_date: '2026-09-30', // expired
-    crlv_due_date: '2026-10-31',
-    status: 'maintenance',
-  },
-  {
-    id: 4,
-    code: 'VEIC-004',
-    plate: 'LMN5B88',
-    renavam: '00876543210',
-    chassis: '9BWZZZ377VT007766',
-    brand: 'Mercedes-Benz',
-    model: 'OF-1721 Ônibus Padron Escolar',
-    year_manufacture: 2023,
-    year_model: 2024,
-    capacity_seats: 59,
-    vehicle_type: 'bus',
-    ownership_type: 'owned',
-    accessibility_adapted: true,
-    detran_inspection_due_date: '2027-01-20',
-    crlv_due_date: '2027-06-30',
-    status: 'active',
-  },
-];
+const initialForm: Partial<VehicleRecord> = {
+  plate: '',
+  code: '',
+  renavam: '',
+  chassis: '',
+  brand: 'Mercedes-Benz',
+  model: '',
+  year_manufacture: 2023,
+  year_model: 2024,
+  capacity_seats: 44,
+  vehicle_type: 'bus',
+  ownership_type: 'owned',
+  accessibility_adapted: false,
+  detran_inspection_due_date: '2027-04-30',
+  crlv_due_date: '2027-10-31',
+  status: 'active',
+};
 
 export const VehicleFleetPage: React.FC = () => {
-  const [fleet] = useState<VehicleRecord[]>(mockFleet);
+  const [fleet, setFleet] = useState<VehicleRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formData, setFormData] = useState<Partial<VehicleRecord>>(initialForm);
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const fetchVehicles = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.get('/transport/vehicles');
+      if (res.data && Array.isArray(res.data.data)) {
+        setFleet(res.data.data);
+      }
+    } catch {
+      // Fallback preserves existing state
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const handleOpenCreate = () => {
+    setEditingId(null);
+    setFormData(initialForm);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (vehicle: VehicleRecord) => {
+    setEditingId(vehicle.id);
+    setFormData({ ...vehicle });
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.plate || !formData.model) {
+      setFormError('Preencha os campos obrigatórios (Placa e Modelo).');
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    try {
+      if (editingId) {
+        await apiClient.put(`/transport/vehicles/${editingId}`, formData);
+      } else {
+        await apiClient.post('/transport/vehicles', formData);
+      }
+      setIsModalOpen(false);
+      fetchVehicles();
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Falha ao salvar veículo. Verifique os campos.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Confirma a exclusão deste veículo da frota escolar?')) {
+      try {
+        await apiClient.delete(`/transport/vehicles/${id}`);
+        fetchVehicles();
+      } catch (err: any) {
+        alert(err.response?.data?.message || 'Falha ao excluir veículo.');
+      }
+    }
+  };
+
+  const isInspectionExpired = (dateStr?: string) => {
+    if (!dateStr) return false;
+    return new Date(dateStr) < new Date('2026-10-31');
+  };
 
   const filteredFleet = fleet.filter((v) => {
     const matchesSearch =
       v.plate.toLowerCase().includes(search.toLowerCase()) ||
-      v.code.toLowerCase().includes(search.toLowerCase()) ||
-      v.model.toLowerCase().includes(search.toLowerCase()) ||
-      v.renavam.includes(search);
+      v.code?.toLowerCase().includes(search.toLowerCase()) ||
+      v.model?.toLowerCase().includes(search.toLowerCase()) ||
+      v.renavam?.includes(search);
     const matchesStatus = !statusFilter || v.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
-
-  const isInspectionExpired = (dateStr: string) => {
-    return new Date(dateStr) < new Date('2026-10-31');
-  };
 
   return (
     <div className="space-y-6">
@@ -154,7 +173,10 @@ export const VehicleFleetPage: React.FC = () => {
             Gestão cadastral, requisitos do CTB Art. 136 (faixa escolar, tacógrafo, cintos) e controle de inspeções semestrais.
           </p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs">
+        <Button
+          onClick={handleOpenCreate}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs"
+        >
           <Plus className="w-4 h-4" />
           Cadastrar Veículo
         </Button>
@@ -162,20 +184,18 @@ export const VehicleFleetPage: React.FC = () => {
 
       {/* Requisitos CTB Art. 136 Card Informativo */}
       <Card className="border-l-4 border-l-emerald-500 bg-slate-50 dark:bg-slate-900/40">
-        <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Shield className="w-5 h-5 text-emerald-500 shrink-0" />
-            <div className="text-xs">
-              <span className="font-semibold text-slate-900 dark:text-slate-100">
-                Padrão Regulatório Obrigatório (CTB Art. 136):
-              </span>{' '}
-              <span className="text-slate-600 dark:text-slate-300">
-                Faixa amarela horizontal de 40 cm com dístico "ESCOLAR" à meia altura, tacógrafo aferido e registrado no INMETRO,
-                cinto de segurança para cada ocupante e inspeção semestral de segurança DETRAN.
-              </span>
-            </div>
+        <div className="p-4 flex items-center gap-3">
+          <Shield className="w-5 h-5 text-emerald-500 shrink-0" />
+          <div className="text-xs">
+            <span className="font-semibold text-slate-900 dark:text-slate-100">
+              Padrão Regulatório Obrigatório (CTB Art. 136):
+            </span>{' '}
+            <span className="text-slate-600 dark:text-slate-300">
+              Faixa amarela horizontal de 40 cm com dístico "ESCOLAR" à meia altura, tacógrafo aferido pelo INMETRO,
+              cinto de segurança para cada ocupante e inspeção semestral de segurança emitida pelo DETRAN.
+            </span>
           </div>
-        </CardContent>
+        </div>
       </Card>
 
       {/* Filtros */}
@@ -203,7 +223,7 @@ export const VehicleFleetPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Tabela de Veículos com JetBrains Mono para dados técnicos */}
+      {/* Tabela de Veículos com Botões de Edição */}
       <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
         <Table>
           <TableHeader>
@@ -216,6 +236,7 @@ export const VehicleFleetPage: React.FC = () => {
               <TableHead className="text-xs font-semibold">VISTORIA DETRAN</TableHead>
               <TableHead className="text-xs font-semibold">CRLV</TableHead>
               <TableHead className="text-xs font-semibold text-center">STATUS</TableHead>
+              <TableHead className="text-xs font-semibold text-right">AÇÕES</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -226,12 +247,12 @@ export const VehicleFleetPage: React.FC = () => {
                 <TableRow key={vehicle.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
                   <TableCell className="font-mono text-xs">
                     <div className="font-bold text-slate-900 dark:text-slate-100">{vehicle.plate}</div>
-                    <div className="text-[11px] text-slate-500 tabular-nums">{vehicle.code}</div>
+                    <div className="text-[11px] text-slate-500 tabular-nums">{vehicle.code || '-'}</div>
                   </TableCell>
                   <TableCell className="text-xs">
                     <div className="font-medium text-slate-800 dark:text-slate-200">{vehicle.model}</div>
                     <div className="text-[11px] text-slate-500 font-mono tabular-nums">
-                      {vehicle.brand} • Ano: {vehicle.year_manufacture}/{vehicle.year_model}
+                      {vehicle.brand} • Ano: {vehicle.year_manufacture || '-'}/{vehicle.year_model || '-'}
                     </div>
                   </TableCell>
                   <TableCell className="text-xs">
@@ -260,13 +281,16 @@ export const VehicleFleetPage: React.FC = () => {
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                       )}
                       <span className={expired ? 'text-rose-500 font-bold' : 'text-slate-700 dark:text-slate-300'}>
-                        {new Date(vehicle.detran_inspection_due_date).toLocaleDateString('pt-BR')}
+                        {vehicle.detran_inspection_due_date
+                          ? new Date(vehicle.detran_inspection_due_date).toLocaleDateString('pt-BR')
+                          : '-'}
                       </span>
                     </div>
-                    {expired && <div className="text-[10px] text-rose-500 font-sans">Vistoria Expirada</div>}
                   </TableCell>
                   <TableCell className="font-mono text-xs tabular-nums text-slate-600 dark:text-slate-400">
-                    {new Date(vehicle.crlv_due_date).toLocaleDateString('pt-BR')}
+                    {vehicle.crlv_due_date
+                      ? new Date(vehicle.crlv_due_date).toLocaleDateString('pt-BR')
+                      : '-'}
                   </TableCell>
                   <TableCell className="text-center">
                     {vehicle.status === 'active' && (
@@ -285,12 +309,205 @@ export const VehicleFleetPage: React.FC = () => {
                       </Badge>
                     )}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleOpenEdit(vehicle)}
+                        className="h-7 w-7 p-0 text-slate-600 hover:text-emerald-600"
+                        title="Editar Veículo"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(vehicle.id)}
+                        className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600"
+                        title="Excluir Veículo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
       </Card>
+
+      {/* Modal de Criação / Edição de Veículo */}
+      <Modal
+        open={isModalOpen}
+        onOpenChange={setIsModalOpen}
+        title={editingId ? 'Editar Veículo da Frota' : 'Cadastrar Novo Veículo Escolar'}
+        description="Preencha os dados do veículo e os parâmetros de conformidade regulatória (CTB Art. 136 e DETRAN)."
+      >
+        <form onSubmit={handleSave} className="space-y-4 pt-1">
+          {formError && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-md text-xs flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Placa do Veículo *
+              </label>
+              <Input
+                placeholder="Ex: ABC1D23"
+                value={formData.plate || ''}
+                onChange={(e) => setFormData({ ...formData, plate: e.target.value.toUpperCase() })}
+                className="font-mono text-xs uppercase"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Código Interno
+              </label>
+              <Input
+                placeholder="Ex: VEIC-01"
+                value={formData.code || ''}
+                onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Modelo / Descrição *
+              </label>
+              <Input
+                placeholder="Ex: OF-1519 Ônibus Rural Escolar (ORE 3)"
+                value={formData.model || ''}
+                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                className="text-xs"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Marca / Fabricante
+              </label>
+              <Input
+                placeholder="Ex: Mercedes-Benz, Volkswagen"
+                value={formData.brand || ''}
+                onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                className="text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                RENAVAM
+              </label>
+              <Input
+                placeholder="00123456789"
+                value={formData.renavam || ''}
+                onChange={(e) => setFormData({ ...formData, renavam: e.target.value })}
+                className="font-mono text-xs tabular-nums"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Capacidade (Lugares Sentados) *
+              </label>
+              <Input
+                type="number"
+                min="1"
+                max="150"
+                value={formData.capacity_seats || 44}
+                onChange={(e) => setFormData({ ...formData, capacity_seats: parseInt(e.target.value, 10) || 0 })}
+                className="font-mono text-xs tabular-nums"
+                required
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Tipo de Veículo
+              </label>
+              <Select
+                value={formData.vehicle_type || 'bus'}
+                onChange={(val) => setFormData({ ...formData, vehicle_type: val as any })}
+                options={[
+                  { value: 'bus', label: 'Ônibus' },
+                  { value: 'microbus', label: 'Micro-ônibus' },
+                  { value: 'van', label: 'Van / Perua' },
+                  { value: 'boat', label: 'Embarcação / Barco' },
+                  { value: 'other', label: 'Outro' },
+                ]}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Validade Vistoria DETRAN Semestral
+              </label>
+              <Input
+                type="date"
+                value={formData.detran_inspection_due_date || ''}
+                onChange={(e) => setFormData({ ...formData, detran_inspection_due_date: e.target.value })}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 block mb-1">
+                Validade do CRLV
+              </label>
+              <Input
+                type="date"
+                value={formData.crlv_due_date || ''}
+                onChange={(e) => setFormData({ ...formData, crlv_due_date: e.target.value })}
+                className="font-mono text-xs"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 pt-1">
+            <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={Boolean(formData.accessibility_adapted)}
+                onChange={(e) => setFormData({ ...formData, accessibility_adapted: e.target.checked })}
+                className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              Adaptado para PCD / Acessibilidade (DTI)
+            </label>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-3 border-t border-slate-200 dark:border-slate-800">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsModalOpen(false)}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs flex items-center gap-1.5"
+            >
+              <Save className="w-3.5 h-3.5" />
+              {saving ? 'Salvando...' : editingId ? 'Atualizar Veículo' : 'Salvar Veículo'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

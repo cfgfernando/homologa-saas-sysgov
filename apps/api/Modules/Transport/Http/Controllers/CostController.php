@@ -116,3 +116,4 @@ final class CostController extends Controller
         return response()->json(['data' => $results, 'parameters' => $params]);
     }
 }
+

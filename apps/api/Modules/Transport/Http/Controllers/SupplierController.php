@@ -64,6 +64,29 @@ final class SupplierController extends Controller
         return response()->json(['data' => TransportSupplier::findOrFail($id)]);
     }
 
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $supplier = TransportSupplier::findOrFail($id);
+        $before = $supplier->toArray();
+
+        $data = $request->validate([
+            'cnpj' => ['sometimes', 'required', 'string', 'max:20'],
+            'corporate_name' => ['sometimes', 'required', 'string', 'max:200'],
+            'trade_name' => ['nullable', 'string', 'max:150'],
+            'service_type' => ['sometimes', 'required', 'string', 'in:transport_service,workshop,fuel_station,parts,other'],
+            'contract_number' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'email' => ['nullable', 'email', 'max:100'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        $supplier->update($data);
+
+        $this->audit->record('transporte', 'update', 'supplier:' . $supplier->id, $before, $supplier->fresh()->toArray());
+
+        return response()->json(['data' => $supplier->fresh()]);
+    }
+
     public function destroy(string $id): JsonResponse
     {
         $supplier = TransportSupplier::findOrFail($id);

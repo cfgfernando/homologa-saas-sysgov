@@ -18,12 +18,19 @@ final class TransportDriver extends Model
 
     protected $guarded = ['id'];
 
+    protected $appends = ['is_compliant'];
+
     protected $casts = [
         'cnh_due_date' => 'date',
         'toxicological_due_date' => 'date',
         'school_transport_course_due_date' => 'date',
         'is_active' => 'boolean',
     ];
+
+    public function getIsCompliantAttribute(): bool
+    {
+        return $this->isCompliant();
+    }
 
     public function pessoa(): BelongsTo
     {

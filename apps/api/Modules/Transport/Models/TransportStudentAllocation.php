@@ -18,6 +18,8 @@ final class TransportStudentAllocation extends Model
     protected $guarded = ['id'];
 
     protected $casts = [
+        'distance_km' => 'float',
+        'has_special_needs' => 'boolean',
         'census_eligible_pnate' => 'boolean',
     ];
 
@@ -34,6 +36,11 @@ final class TransportStudentAllocation extends Model
     public function pickupStop(): BelongsTo
     {
         return $this->belongsTo(TransportStop::class, 'pickup_stop_id');
+    }
+
+    public function stop(): BelongsTo
+    {
+        return $this->pickupStop();
     }
 
     public function dropoffStop(): BelongsTo

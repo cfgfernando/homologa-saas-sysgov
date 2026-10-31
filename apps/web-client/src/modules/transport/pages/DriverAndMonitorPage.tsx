@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Card,
   Table,
@@ -10,10 +10,8 @@ import {
   Badge,
   Button,
   Input,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
+  Select,
+  Modal,
 } from '@sysgov/ui';
 import {
   Users,
@@ -24,7 +22,12 @@ import {
   AlertTriangle,
   UserCheck,
   IdCard,
+  Pencil,
+  Trash2,
+  Save,
+  AlertCircle,
 } from 'lucide-react';
+import { apiClient } from '@/core/api/client';
 
 interface DriverItem {
   id: number;
@@ -36,6 +39,7 @@ interface DriverItem {
   school_course_due_date: string;
   toxicological_due_date: string;
   is_compliant: boolean;
+  is_active: boolean;
 }
 
 interface MonitorItem {
@@ -44,72 +48,252 @@ interface MonitorItem {
   cpf: string;
   rg: string;
   phone: string;
+  assigned_route_id?: number | null;
   assigned_route: string;
   is_active: boolean;
 }
 
-const mockDrivers: DriverItem[] = [
-  {
-    id: 1,
-    name: 'Carlos Alberto Silva',
-    cpf: '123.456.789-00',
-    cnh_number: '01928374650',
-    cnh_category: 'D',
-    cnh_due_date: '2028-05-20',
-    school_course_due_date: '2027-11-15',
-    toxicological_due_date: '2027-04-10',
-    is_compliant: true,
-  },
-  {
-    id: 2,
-    name: 'Maria Helena Souza',
-    cpf: '987.654.321-11',
-    cnh_number: '09812736450',
-    cnh_category: 'D',
-    cnh_due_date: '2027-08-14',
-    school_course_due_date: '2028-02-28',
-    toxicological_due_date: '2027-06-30',
-    is_compliant: true,
-  },
-  {
-    id: 3,
-    name: 'José Ferreira de Melo',
-    cpf: '456.789.123-22',
-    cnh_number: '05544332211',
-    cnh_category: 'E',
-    cnh_due_date: '2026-09-30', // expired
-    school_course_due_date: '2027-01-10',
-    toxicological_due_date: '2026-10-15',
-    is_compliant: false,
-  },
-];
+const initialDriverForm: Partial<DriverItem> = {
+  name: '',
+  cpf: '',
+  cnh_number: '',
+  cnh_category: 'D',
+  cnh_due_date: '2028-06-30',
+  school_course_due_date: '2028-12-31',
+  toxicological_due_date: '2027-12-31',
+  is_active: true,
+};
 
-const mockMonitors: MonitorItem[] = [
-  {
-    id: 1,
-    name: 'Ana Paula Rodrigues',
-    cpf: '333.222.111-44',
-    rg: '12.345.678-9 SSP/PR',
-    phone: '(41) 98877-6655',
-    assigned_route: 'ROTA-RUR-01',
-    is_active: true,
-  },
-  {
-    id: 2,
-    name: 'Juliana Mendes Santos',
-    cpf: '555.444.333-88',
-    rg: '98.765.432-1 SSP/PR',
-    phone: '(41) 99122-3344',
-    assigned_route: 'ROTA-URB-02',
-    is_active: true,
-  },
-];
+const initialMonitorForm: Partial<MonitorItem> = {
+  name: '',
+  cpf: '',
+  rg: '',
+  phone: '',
+  assigned_route_id: undefined,
+  is_active: true,
+};
 
 export const DriverAndMonitorPage: React.FC = () => {
   const [subTab, setSubTab] = useState<'drivers' | 'monitors'>('drivers');
-  const [drivers] = useState<DriverItem[]>(mockDrivers);
-  const [monitors] = useState<MonitorItem[]>(mockMonitors);
+  const [drivers, setDrivers] = useState<DriverItem[]>([]);
+  const [monitors, setMonitors] = useState<MonitorItem[]>([]);
+  const [routes, setRoutes] = useState<{ id: number; code: string; name: string }[]>([]);
   const [search, setSearch] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Driver Modal state
+  const [isDriverModalOpen, setIsDriverModalOpen] = useState(false);
+  const [editingDriverId, setEditingDriverId] = useState<number | null>(null);
+  const [driverFormData, setDriverFormData] = useState<Partial<DriverItem>>(initialDriverForm);
+
+  // Monitor Modal state
+  const [isMonitorModalOpen, setIsMonitorModalOpen] = useState(false);
+  const [editingMonitorId, setEditingMonitorId] = useState<number | null>(null);
+  const [monitorFormData, setMonitorFormData] = useState<Partial<MonitorItem>>(initialMonitorForm);
+
+  const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const fetchDrivers = async () => {
+    try {
+      const res = await apiClient.get('/transport/drivers');
+      if (res.data && Array.isArray(res.data.data)) {
+        setDrivers(
+          res.data.data.map((d: any) => ({
+            id: d.id,
+            name: d.pessoa?.nome || 'Condutor ' + d.id,
+            cpf: d.pessoa?.documento || '000.000.000-00',
+            cnh_number: d.cnh_number,
+            cnh_category: d.cnh_category || 'D',
+            cnh_due_date: d.cnh_due_date ? String(d.cnh_due_date).split('T')[0] : '2028-01-01',
+            school_course_due_date: d.school_transport_course_due_date
+              ? String(d.school_transport_course_due_date).split('T')[0]
+              : '2028-01-01',
+            toxicological_due_date: d.toxicological_due_date
+              ? String(d.toxicological_due_date).split('T')[0]
+              : '2027-01-01',
+            is_compliant: d.is_compliant !== undefined ? Boolean(d.is_compliant) : true,
+            is_active: Boolean(d.is_active),
+          }))
+        );
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  const fetchMonitors = async () => {
+    try {
+      const res = await apiClient.get('/transport/monitors');
+      if (res.data && Array.isArray(res.data.data)) {
+        setMonitors(
+          res.data.data.map((m: any) => ({
+            id: m.id,
+            name: m.pessoa?.nome || 'Monitor ' + m.id,
+            cpf: m.pessoa?.documento || '000.000.000-00',
+            rg: m.rg || 'Não informado',
+            phone: m.phone || '(41) 99999-9999',
+            assigned_route_id: m.assigned_route_id,
+            assigned_route: m.route?.code || (m.assigned_route_id ? 'ROTA-' + m.assigned_route_id : 'Não alocado'),
+            is_active: Boolean(m.is_active),
+          }))
+        );
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  const fetchRoutes = async () => {
+    try {
+      const res = await apiClient.get('/transport/routes');
+      if (res.data && Array.isArray(res.data.data)) {
+        setRoutes(res.data.data);
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
+  useEffect(() => {
+    fetchDrivers();
+    fetchMonitors();
+    fetchRoutes();
+  }, []);
+
+  // Driver handlers
+  const handleOpenCreateDriver = () => {
+    setEditingDriverId(null);
+    setDriverFormData(initialDriverForm);
+    setFormError(null);
+    setIsDriverModalOpen(true);
+  };
+
+  const handleOpenEditDriver = (driver: DriverItem) => {
+    setEditingDriverId(driver.id);
+    setDriverFormData({ ...driver });
+    setFormError(null);
+    setIsDriverModalOpen(true);
+  };
+
+  const handleSaveDriver = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!driverFormData.name || !driverFormData.cnh_number) {
+      setFormError('Informe o nome do condutor e o número da CNH.');
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    try {
+      const payload = {
+        name: driverFormData.name,
+        cpf: driverFormData.cpf,
+        cnh_number: driverFormData.cnh_number,
+        cnh_category: driverFormData.cnh_category,
+        cnh_due_date: driverFormData.cnh_due_date,
+        school_transport_course_due_date: driverFormData.school_course_due_date,
+        toxicological_due_date: driverFormData.toxicological_due_date,
+        is_active: driverFormData.is_active,
+      };
+
+      if (editingDriverId) {
+        await apiClient.put(`/transport/drivers/${editingDriverId}`, payload);
+      } else {
+        await apiClient.post('/transport/drivers', payload);
+      }
+
+      await fetchDrivers();
+      setIsDriverModalOpen(false);
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Falha ao salvar dados do condutor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteDriver = async (id: number) => {
+    if (!window.confirm('Confirma a exclusão deste condutor?')) return;
+    try {
+      await apiClient.delete(`/transport/drivers/${id}`);
+      setDrivers((prev) => prev.filter((d) => d.id !== id));
+    } catch (err: any) {
+      alert('Falha ao excluir condutor: ' + (err.response?.data?.message || 'Erro desconhecido'));
+    }
+  };
+
+  // Monitor handlers
+  const handleOpenCreateMonitor = () => {
+    setEditingMonitorId(null);
+    setMonitorFormData(initialMonitorForm);
+    setFormError(null);
+    setIsMonitorModalOpen(true);
+  };
+
+  const handleOpenEditMonitor = (m: MonitorItem) => {
+    setEditingMonitorId(m.id);
+    setMonitorFormData({ ...m });
+    setFormError(null);
+    setIsMonitorModalOpen(true);
+  };
+
+  const handleSaveMonitor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!monitorFormData.name) {
+      setFormError('Informe o nome do monitor.');
+      return;
+    }
+
+    setSaving(true);
+    setFormError(null);
+    try {
+      const payload = {
+        name: monitorFormData.name,
+        cpf: monitorFormData.cpf,
+        rg: monitorFormData.rg,
+        phone: monitorFormData.phone,
+        assigned_route_id: monitorFormData.assigned_route_id || null,
+        is_active: monitorFormData.is_active,
+      };
+
+      if (editingMonitorId) {
+        await apiClient.put(`/transport/monitors/${editingMonitorId}`, payload);
+      } else {
+        await apiClient.post('/transport/monitors', payload);
+      }
+
+      await fetchMonitors();
+      setIsMonitorModalOpen(false);
+    } catch (err: any) {
+      setFormError(err.response?.data?.message || 'Falha ao salvar dados do monitor.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteMonitor = async (id: number) => {
+    if (!window.confirm('Confirma a exclusão deste monitor de bordo?')) return;
+    try {
+      await apiClient.delete(`/transport/monitors/${id}`);
+      setMonitors((prev) => prev.filter((m) => m.id !== id));
+    } catch (err: any) {
+      alert('Falha ao excluir monitor: ' + (err.response?.data?.message || 'Erro desconhecido'));
+    }
+  };
+
+  const filteredDrivers = drivers.filter(
+    (d) =>
+      d.name.toLowerCase().includes(search.toLowerCase()) ||
+      d.cpf.includes(search) ||
+      d.cnh_number.includes(search)
+  );
+
+  const filteredMonitors = monitors.filter(
+    (m) =>
+      m.name.toLowerCase().includes(search.toLowerCase()) ||
+      m.cpf.includes(search) ||
+      m.phone.includes(search)
+  );
 
   return (
     <div className="space-y-6">
@@ -123,29 +307,43 @@ export const DriverAndMonitorPage: React.FC = () => {
             Conformidade CTB Art. 138 (idade &gt; 21 anos, CNH "D" ou "E", curso escolar e exame toxicológico) e monitores de bordo.
           </p>
         </div>
-        <Button className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs">
+        <Button
+          onClick={subTab === 'drivers' ? handleOpenCreateDriver : handleOpenCreateMonitor}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs font-semibold"
+        >
           <Plus className="w-4 h-4" />
           {subTab === 'drivers' ? 'Cadastrar Motorista' : 'Cadastrar Monitor'}
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Button
-          variant={subTab === 'drivers' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSubTab('drivers')}
-          className="text-xs"
-        >
-          Motoristas Habilitados ({drivers.length})
-        </Button>
-        <Button
-          variant={subTab === 'monitors' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setSubTab('monitors')}
-          className="text-xs"
-        >
-          Monitores de Bordo ({monitors.length})
-        </Button>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant={subTab === 'drivers' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSubTab('drivers')}
+            className="text-xs"
+          >
+            Motoristas Habilitados ({drivers.length})
+          </Button>
+          <Button
+            variant={subTab === 'monitors' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSubTab('monitors')}
+            className="text-xs"
+          >
+            Monitores de Bordo ({monitors.length})
+          </Button>
+        </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+          <Input
+            placeholder="Buscar por nome, documento ou CNH..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 text-xs"
+          />
+        </div>
       </div>
 
       {subTab === 'drivers' ? (
@@ -159,43 +357,72 @@ export const DriverAndMonitorPage: React.FC = () => {
                 <TableHead className="text-xs font-semibold">CURSO TRANSPORTE</TableHead>
                 <TableHead className="text-xs font-semibold">TOXICOLÓGICO</TableHead>
                 <TableHead className="text-xs font-semibold text-center">STATUS CTB 138</TableHead>
+                <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {drivers.map((d) => (
-                <TableRow key={d.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <TableCell className="text-xs">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">{d.name}</div>
-                    <div className="font-mono text-[11px] text-slate-500 tabular-nums">{d.cpf}</div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums font-semibold">
-                    <div>{d.cnh_number}</div>
-                    <Badge variant="outline" className="border-cyan-500 text-cyan-500 text-[10px] py-0 px-1 mt-0.5">
-                      Cat. {d.cnh_category}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    {new Date(d.cnh_due_date).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    {new Date(d.school_course_due_date).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    {new Date(d.toxicological_due_date).toLocaleDateString('pt-BR')}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {d.is_compliant ? (
-                      <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                        <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Conforme
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-rose-500 text-rose-500 text-[10px]">
-                        <AlertTriangle className="w-3 h-3 mr-1 inline" /> CNH Vencida
-                      </Badge>
-                    )}
+              {filteredDrivers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
+                    Nenhum motorista cadastrado.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredDrivers.map((d) => (
+                  <TableRow key={d.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                    <TableCell className="text-xs">
+                      <div className="font-bold text-slate-900 dark:text-slate-100">{d.name}</div>
+                      <div className="font-mono text-[11px] text-slate-500 tabular-nums">{d.cpf}</div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums font-semibold">
+                      <div>{d.cnh_number}</div>
+                      <Badge variant="outline" className="border-cyan-500 text-cyan-500 text-[10px] py-0 px-1 mt-0.5">
+                        Cat. {d.cnh_category}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                      {d.cnh_due_date ? new Date(d.cnh_due_date).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                      {d.school_course_due_date ? new Date(d.school_course_due_date).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                      {d.toxicological_due_date ? new Date(d.toxicological_due_date).toLocaleDateString('pt-BR') : '-'}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {d.is_compliant ? (
+                        <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
+                          <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Conforme
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="border-rose-500 text-rose-500 text-[10px]">
+                          <AlertTriangle className="w-3 h-3 mr-1 inline" /> Expirado / Pendente
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEditDriver(d)}
+                          className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteDriver(d.id)}
+                          className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </Card>
@@ -209,35 +436,258 @@ export const DriverAndMonitorPage: React.FC = () => {
                 <TableHead className="text-xs font-semibold">CONTATO TELEFÔNICO</TableHead>
                 <TableHead className="text-xs font-semibold">ROTA DESIGNADA</TableHead>
                 <TableHead className="text-xs font-semibold text-center">STATUS</TableHead>
+                <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {monitors.map((m) => (
-                <TableRow key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <TableCell className="text-xs">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">{m.name}</div>
-                    <div className="font-mono text-[11px] text-slate-500 tabular-nums">{m.cpf}</div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    {m.rg}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    {m.phone}
-                  </TableCell>
-                  <TableCell className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    {m.assigned_route}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                      Ativo
-                    </Badge>
+              {filteredMonitors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
+                    Nenhum monitor cadastrado.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredMonitors.map((m) => (
+                  <TableRow key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                    <TableCell className="text-xs">
+                      <div className="font-bold text-slate-900 dark:text-slate-100">{m.name}</div>
+                      <div className="font-mono text-[11px] text-slate-500 tabular-nums">{m.cpf}</div>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                      {m.rg}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+                      {m.phone}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      {m.assigned_route}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
+                        Ativo
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleOpenEditMonitor(m)}
+                          className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteMonitor(m.id)}
+                          className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </Card>
       )}
+
+      {/* MODAL: MOTORISTA */}
+      <Modal
+        open={isDriverModalOpen}
+        onOpenChange={setIsDriverModalOpen}
+        title={editingDriverId ? 'Editar Motorista (CTB 138)' : 'Novo Motorista Escolar (CTB 138)'}
+      >
+        <form onSubmit={handleSaveDriver} className="space-y-4">
+          {formError && (
+            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 flex items-center gap-2 rounded">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Nome Completo *</label>
+              <Input
+                value={driverFormData.name || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, name: e.target.value })}
+                required
+                className="mt-1 text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">CPF *</label>
+              <Input
+                value={driverFormData.cpf || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, cpf: e.target.value })}
+                className="mt-1 text-xs font-mono"
+                placeholder="000.000.000-00"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Nº Registro CNH *</label>
+              <Input
+                value={driverFormData.cnh_number || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, cnh_number: e.target.value })}
+                required
+                className="mt-1 text-xs font-mono uppercase"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Categoria CNH (CTB 138) *</label>
+              <Select
+                value={driverFormData.cnh_category || 'D'}
+                onChange={(val: any) => setDriverFormData({ ...driverFormData, cnh_category: val as any })}
+                options={[
+                  { value: 'D', label: 'Categoria D (Ônibus e Vans)' },
+                  { value: 'E', label: 'Categoria E (Veículos Articulados)' },
+                ]}
+                className="mt-1"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Validade CNH *</label>
+              <Input
+                type="date"
+                value={driverFormData.cnh_due_date || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, cnh_due_date: e.target.value })}
+                className="mt-1 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Validade Curso Escolar</label>
+              <Input
+                type="date"
+                value={driverFormData.school_course_due_date || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, school_course_due_date: e.target.value })}
+                className="mt-1 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Exame Toxicológico</label>
+              <Input
+                type="date"
+                value={driverFormData.toxicological_due_date || ''}
+                onChange={(e) => setDriverFormData({ ...driverFormData, toxicological_due_date: e.target.value })}
+                className="mt-1 text-xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsDriverModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Salvando...' : 'Salvar Motorista'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL: MONITOR */}
+      <Modal
+        open={isMonitorModalOpen}
+        onOpenChange={setIsMonitorModalOpen}
+        title={editingMonitorId ? 'Editar Monitor de Bordo' : 'Novo Monitor de Bordo'}
+      >
+        <form onSubmit={handleSaveMonitor} className="space-y-4">
+          {formError && (
+            <div className="p-3 text-xs bg-rose-50 border border-rose-200 text-rose-700 dark:bg-rose-950/30 dark:border-rose-900 flex items-center gap-2 rounded">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>{formError}</span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Nome Completo *</label>
+              <Input
+                value={monitorFormData.name || ''}
+                onChange={(e) => setMonitorFormData({ ...monitorFormData, name: e.target.value })}
+                required
+                className="mt-1 text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">CPF</label>
+              <Input
+                value={monitorFormData.cpf || ''}
+                onChange={(e) => setMonitorFormData({ ...monitorFormData, cpf: e.target.value })}
+                className="mt-1 text-xs font-mono"
+                placeholder="000.000.000-00"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Documento RG</label>
+              <Input
+                value={monitorFormData.rg || ''}
+                onChange={(e) => setMonitorFormData({ ...monitorFormData, rg: e.target.value })}
+                className="mt-1 text-xs font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Telefone / Contato</label>
+              <Input
+                value={monitorFormData.phone || ''}
+                onChange={(e) => setMonitorFormData({ ...monitorFormData, phone: e.target.value })}
+                className="mt-1 text-xs font-mono"
+                placeholder="(00) 00000-0000"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Rota Designada</label>
+            <Select
+              value={monitorFormData.assigned_route_id ? String(monitorFormData.assigned_route_id) : ''}
+              onChange={(val: any) => setMonitorFormData({ ...monitorFormData, assigned_route_id: val ? Number(val) : null })}
+              options={[
+                { value: '', label: 'Sem rota vinculada (Disponível)' },
+                ...routes.map((r) => ({
+                  value: String(r.id),
+                  label: `${r.code} - ${r.name}`,
+                })),
+              ]}
+              className="mt-1"
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-slate-800">
+            <Button type="button" variant="outline" size="sm" onClick={() => setIsMonitorModalOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Salvando...' : 'Salvar Monitor'}
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

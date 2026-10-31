@@ -22,3 +22,4 @@ final class TransportGarage extends Model
         'is_active' => 'boolean',
     ];
 }
+
