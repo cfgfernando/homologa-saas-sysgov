@@ -186,3 +186,4 @@ final class SchoolController extends Controller
         return response()->json(['message' => 'Escola/Ponto de parada removido com sucesso.']);
     }
 }
+

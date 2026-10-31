@@ -74,7 +74,7 @@ export const TransportModule: React.FC = () => {
 
         <div className="mt-6">
           <TabsContent value="dashboard">
-            <TransportDashboardPage />
+            <TransportDashboardPage onNavigateTab={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="alunos">

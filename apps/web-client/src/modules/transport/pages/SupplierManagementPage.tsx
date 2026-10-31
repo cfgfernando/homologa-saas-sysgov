@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Card,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  DataTable,
   Badge,
   Button,
   Input,
@@ -52,6 +48,7 @@ const initialSupplierForm: Partial<SupplierRecord> = {
 
 export const SupplierManagementPage: React.FC = () => {
   const [suppliers, setSuppliers] = useState<SupplierRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
@@ -63,6 +60,7 @@ export const SupplierManagementPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const fetchSuppliers = async () => {
+    setLoading(true);
     try {
       const res = await apiClient.get('/transport/suppliers');
       if (res.data && Array.isArray(res.data.data)) {
@@ -70,6 +68,8 @@ export const SupplierManagementPage: React.FC = () => {
       }
     } catch {
       // Fallback
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,11 +104,11 @@ export const SupplierManagementPage: React.FC = () => {
       const payload = {
         cnpj: formData.cnpj,
         corporate_name: formData.corporate_name,
-        trade_name: formData.trade_name || null,
-        service_type: formData.service_type || 'transport_service',
-        contract_number: formData.contract_number || null,
-        phone: formData.phone || null,
-        email: formData.email || null,
+        trade_name: formData.trade_name,
+        service_type: formData.service_type,
+        contract_number: formData.contract_number,
+        phone: formData.phone,
+        email: formData.email,
         is_active: formData.is_active ?? true,
       };
 
@@ -121,14 +121,14 @@ export const SupplierManagementPage: React.FC = () => {
       await fetchSuppliers();
       setIsModalOpen(false);
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Falha ao salvar dados do fornecedor.');
+      setFormError(err.response?.data?.message || 'Falha ao salvar fornecedor.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Confirma a exclusão deste fornecedor/contrato?')) return;
+    if (!window.confirm('Confirma a exclusão deste fornecedor?')) return;
     try {
       await apiClient.delete(`/transport/suppliers/${id}`);
       setSuppliers((prev) => prev.filter((s) => s.id !== id));
@@ -137,14 +137,16 @@ export const SupplierManagementPage: React.FC = () => {
     }
   };
 
-  const filtered = suppliers.filter((s) => {
-    const matchesSearch =
-      s.corporate_name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
-      s.cnpj.includes(search);
-    const matchesType = !typeFilter || s.service_type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const filtered = useMemo(() => {
+    return suppliers.filter((s) => {
+      const matchesSearch =
+        s.corporate_name.toLowerCase().includes(search.toLowerCase()) ||
+        (s.trade_name && s.trade_name.toLowerCase().includes(search.toLowerCase())) ||
+        s.cnpj.includes(search);
+      const matchesType = !typeFilter || s.service_type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [suppliers, search, typeFilter]);
 
   const getServiceTypeBadge = (type: string) => {
     switch (type) {
@@ -158,6 +160,98 @@ export const SupplierManagementPage: React.FC = () => {
         return <Badge variant="outline" className="text-[10px]">Auto Peças / Outros</Badge>;
     }
   };
+
+  const columns = useMemo<ColumnDef<SupplierRecord>[]>(
+    () => [
+      {
+        accessorKey: 'corporate_name',
+        header: 'FORNECEDOR / NOME FANTASIA',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-bold text-slate-900 dark:text-slate-100">{row.original.corporate_name}</div>
+            <div className="text-[11px] text-slate-500">{row.original.trade_name || '-'}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'cnpj',
+        header: 'CNPJ',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-800 dark:text-slate-200">
+            {row.original.cnpj}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'service_type',
+        header: 'RAMO / ATUAÇÃO',
+        cell: ({ row }) => getServiceTypeBadge(row.original.service_type),
+      },
+      {
+        accessorKey: 'contract_number',
+        header: 'CONTRATO / VIGÊNCIA',
+        cell: ({ row }) => (
+          <div className="font-mono text-xs tabular-nums font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+            <FileText className="w-3.5 h-3.5 text-slate-400" />
+            {row.original.contract_number || 'Sem Contrato'}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'phone',
+        header: 'CONTATO',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-mono text-[11px] tabular-nums text-slate-600 dark:text-slate-400 flex items-center gap-1">
+              <Phone className="w-3 h-3 text-slate-400" />
+              {row.original.phone || '-'}
+            </div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+              <Mail className="w-3 h-3 text-slate-400" />
+              {row.original.email || '-'}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'is_active',
+        header: 'STATUS',
+        cell: ({ row }) =>
+          row.original.is_active ? (
+            <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">Ativo</Badge>
+          ) : (
+            <Badge variant="outline" className="border-slate-500 text-slate-400 text-[10px]">Inativo</Badge>
+          ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEdit(row.original)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+              title="Editar Fornecedor"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+              title="Excluir Fornecedor"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6">
@@ -206,92 +300,22 @@ export const SupplierManagementPage: React.FC = () => {
         </div>
       </div>
 
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-              <TableHead className="text-xs font-semibold">FORNECEDOR / NOME FANTASIA</TableHead>
-              <TableHead className="text-xs font-semibold">CNPJ</TableHead>
-              <TableHead className="text-xs font-semibold">RAMO / ATUAÇÃO</TableHead>
-              <TableHead className="text-xs font-semibold">CONTRATO / VIGÊNCIA</TableHead>
-              <TableHead className="text-xs font-semibold">CONTATO</TableHead>
-              <TableHead className="text-xs font-semibold text-center">STATUS</TableHead>
-              <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
-                  Nenhum fornecedor cadastrado.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((s) => (
-                <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <TableCell className="text-xs">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">{s.corporate_name}</div>
-                    <div className="text-[11px] text-slate-500">{s.trade_name || '-'}</div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-800 dark:text-slate-200">
-                    {s.cnpj}
-                  </TableCell>
-                  <TableCell>{getServiceTypeBadge(s.service_type)}</TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums font-semibold text-slate-800 dark:text-slate-200">
-                    <div className="flex items-center gap-1">
-                      <FileText className="w-3.5 h-3.5 text-slate-400" />
-                      {s.contract_number || 'Sem Contrato'}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-600 dark:text-slate-400">
-                    <div className="flex items-center gap-1">
-                      <Phone className="w-3 h-3 text-slate-400" />
-                      {s.phone || '-'}
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-sans">{s.email || '-'}</div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    {s.is_active ? (
-                      <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                        Ativo
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="border-slate-400 text-slate-400 text-[10px]">
-                        Inativo
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(s)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(s.id)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+        <DataTable
+          columns={columns}
+          data={filtered}
+          loading={loading}
+          emptyText="Nenhum fornecedor cadastrado ou encontrado."
+          pageSize={10}
+          pagination={true}
+        />
       </Card>
 
       {/* MODAL: FORNECEDOR */}
       <Modal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        size="2xl"
         title={editingId ? 'Editar Fornecedor / Contrato' : 'Cadastrar Novo Fornecedor'}
       >
         <form onSubmit={handleSave} className="space-y-4">
@@ -339,11 +363,11 @@ export const SupplierManagementPage: React.FC = () => {
                 value={formData.service_type || 'transport_service'}
                 onChange={(val: any) => setFormData({ ...formData, service_type: val as any })}
                 options={[
-                  { value: 'transport_service', label: 'Prestadora de Transporte de Alunos' },
+                  { value: 'transport_service', label: 'Prestadora de Transporte Escolar' },
                   { value: 'workshop', label: 'Oficina Mecânica / Manutenção' },
                   { value: 'fuel_station', label: 'Posto de Combustível' },
-                  { value: 'parts', label: 'Auto Peças e Pneus' },
-                  { value: 'other', label: 'Outros Prestadores' },
+                  { value: 'parts', label: 'Auto Peças e Componentes' },
+                  { value: 'other', label: 'Outros Serviços' },
                 ]}
                 className="mt-1"
               />
@@ -352,12 +376,12 @@ export const SupplierManagementPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Nº do Contrato</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Nº do Contrato / Licitação</label>
               <Input
                 value={formData.contract_number || ''}
                 onChange={(e) => setFormData({ ...formData, contract_number: e.target.value })}
-                className="mt-1 text-xs font-mono"
-                placeholder="CT-2026/0000"
+                className="mt-1 text-xs font-mono uppercase"
+                placeholder="CT-2026/001"
               />
             </div>
             <div>
@@ -366,11 +390,11 @@ export const SupplierManagementPage: React.FC = () => {
                 value={formData.phone || ''}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 className="mt-1 text-xs font-mono"
-                placeholder="(00) 0000-0000"
+                placeholder="(00) 00000-0000"
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">E-mail</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">E-mail de Contato</label>
               <Input
                 type="email"
                 value={formData.email || ''}

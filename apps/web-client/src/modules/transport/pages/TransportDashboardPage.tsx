@@ -19,8 +19,11 @@ import {
   Navigation,
   RefreshCw,
   ExternalLink,
+  Plus,
+  GraduationCap,
+  Wrench,
 } from 'lucide-react';
-import { TransportMapViewer, RouteMapData } from '../components/TransportMapViewer';
+import { TransportMapViewer, RouteMapData, MapStopData } from '../components/TransportMapViewer';
 import { apiClient } from '@/core/api/client';
 
 interface DashboardStats {
@@ -48,41 +51,21 @@ interface DashboardStats {
   };
 }
 
-const mockRoutes: RouteMapData[] = [
-  {
-    id: 1,
-    code: 'ROTA-RUR-01',
-    name: 'Linha Veredas - Assentamento Esperança',
-    shift: 'morning',
-    route_type: 'rural',
-    distance_km: 34.2,
-    stops: [
-      { id: 101, name: 'Comunidade São João', latitude: -15.7801, longitude: -47.892, students_count: 8 },
-      { id: 102, name: 'Fazenda Boa Vista', latitude: -15.795, longitude: -47.885, students_count: 6 },
-      { id: 103, name: 'Escola Municipal Rural Castro Alves', latitude: -15.81, longitude: -47.872, students_count: 14 },
-    ],
-  },
-  {
-    id: 2,
-    code: 'ROTA-URB-02',
-    name: 'Linha Circular Bairros Sul',
-    shift: 'afternoon',
-    route_type: 'urban',
-    distance_km: 14.8,
-    stops: [
-      { id: 201, name: 'Terminal Central', latitude: -15.798, longitude: -47.865, students_count: 12 },
-      { id: 202, name: 'Complexo Educacional Darcy Ribeiro', latitude: -15.805, longitude: -47.855, students_count: 18 },
-    ],
-  },
-];
+interface TransportDashboardPageProps {
+  onNavigateTab?: (tab: string) => void;
+}
 
-export const TransportDashboardPage: React.FC = () => {
+export const TransportDashboardPage: React.FC<TransportDashboardPageProps> = ({
+  onNavigateTab,
+}) => {
   const [stats, setStats] = useState<DashboardStats>({
-    vehicles: { total: 24, active: 21, pending_inspection: 2 },
-    drivers: { total: 28, active: 26, expired_cnh: 1, expired_course: 0 },
-    routes: { total: 18, active: 18, rural: 12, urban: 6, mixed: 0 },
-    students: { total_transported: 642, pnate_eligible: 488 },
+    vehicles: { total: 4, active: 3, pending_inspection: 1 },
+    drivers: { total: 3, active: 2, expired_cnh: 1, expired_course: 0 },
+    routes: { total: 2, active: 2, rural: 1, urban: 1, mixed: 0 },
+    students: { total_transported: 24, pnate_eligible: 18 },
   });
+  const [routes, setRoutes] = useState<RouteMapData[]>([]);
+  const [stops, setStops] = useState<MapStopData[]>([]);
   const [loading, setLoading] = useState(false);
 
   const fetchStats = async () => {
@@ -99,8 +82,48 @@ export const TransportDashboardPage: React.FC = () => {
     }
   };
 
+  const fetchMapData = async () => {
+    try {
+      const [resRoutes, resSchools] = await Promise.all([
+        apiClient.get('/transport/routes'),
+        apiClient.get('/transport/schools'),
+      ]);
+
+      if (resRoutes.data && Array.isArray(resRoutes.data.data)) {
+        setRoutes(
+          resRoutes.data.data.map((r: any) => ({
+            id: r.id,
+            code: r.code,
+            name: r.name,
+            shift: r.shift,
+            route_type: r.route_type,
+            distance_km: Number(r.distance_paved_km || 0) + Number(r.distance_unpaved_km || 0),
+            waypoints: r.waypoints || [],
+            stops: r.stops || [],
+          }))
+        );
+      }
+
+      if (resSchools.data && Array.isArray(resSchools.data.data)) {
+        setStops(
+          resSchools.data.data.map((sc: any) => ({
+            id: sc.id,
+            name: sc.name,
+            latitude: Number(sc.latitude),
+            longitude: Number(sc.longitude),
+            zone_type: sc.zone,
+            students_count: sc.total_transported_students,
+          }))
+        );
+      }
+    } catch {
+      // Fallback
+    }
+  };
+
   useEffect(() => {
     fetchStats();
+    fetchMapData();
   }, []);
 
   const pnatePercentage = stats.students.total_transported > 0
@@ -109,7 +132,7 @@ export const TransportDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header com ações */}
+      {/* Header com ações rápidas que navegam para as telas */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -120,11 +143,40 @@ export const TransportDashboardPage: React.FC = () => {
             Conformidade CTB (Arts. 136 e 138), fiscalização DETRAN, roteirização georreferenciada e repasses PNATE/FNDE.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
-            variant="outline"
             size="sm"
-            onClick={fetchStats}
+            onClick={() => onNavigateTab?.('alunos')}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <GraduationCap className="w-3.5 h-3.5" />
+            + Novo Aluno
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onNavigateTab?.('rotas')}
+            variant="outline"
+            className="flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <RouteIcon className="w-3.5 h-3.5 text-cyan-500" />
+            + Nova Rota
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => onNavigateTab?.('veiculos')}
+            variant="outline"
+            className="flex items-center gap-1.5 text-xs font-semibold"
+          >
+            <Bus className="w-3.5 h-3.5 text-amber-500" />
+            + Cadastrar Veículo
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              fetchStats();
+              fetchMapData();
+            }}
             disabled={loading}
             className="flex items-center gap-1.5 font-mono text-xs"
           >
@@ -134,74 +186,82 @@ export const TransportDashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Grid de KPIs Obrigatórios */}
+      {/* Grid de KPIs Obrigatórios com ação ao clicar */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          title="FROTA DE VEÍCULOS"
-          value={stats.vehicles.total}
-          subtitle={`${stats.vehicles.active} em circulação ativa`}
-          accentClassName="border-l-emerald-500"
-          valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
-          statusBadge={
-            stats.vehicles.pending_inspection > 0 ? (
+        <div onClick={() => onNavigateTab?.('veiculos')} className="cursor-pointer transition-transform hover:scale-[1.01]">
+          <KpiCard
+            title="FROTA DE VEÍCULOS"
+            value={stats.vehicles.total}
+            subtitle={`${stats.vehicles.active} em circulação ativa`}
+            accentClassName="border-l-emerald-500"
+            valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
+            statusBadge={
+              stats.vehicles.pending_inspection > 0 ? (
+                <Badge variant="outline" className="border-amber-500 text-amber-500 font-mono text-[11px]">
+                  {stats.vehicles.pending_inspection} vistoria(s) pendente(s)
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-emerald-500 text-emerald-500 font-mono text-[11px]">
+                  Frota 100% inspecionada
+                </Badge>
+              )
+            }
+          />
+        </div>
+
+        <div onClick={() => onNavigateTab?.('equipe')} className="cursor-pointer transition-transform hover:scale-[1.01]">
+          <KpiCard
+            title="CONDUTORES HABILITADOS"
+            value={stats.drivers.total}
+            subtitle="Conformidade CTB Art. 138"
+            accentClassName="border-l-indigo-500"
+            valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
+            statusBadge={
+              stats.drivers.expired_cnh > 0 ? (
+                <Badge variant="outline" className="border-rose-500 text-rose-500 font-mono text-[11px]">
+                  {stats.drivers.expired_cnh} CNH vencida
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="border-emerald-500 text-emerald-500 font-mono text-[11px]">
+                  CNH D/E em dia
+                </Badge>
+              )
+            }
+          />
+        </div>
+
+        <div onClick={() => onNavigateTab?.('rotas')} className="cursor-pointer transition-transform hover:scale-[1.01]">
+          <KpiCard
+            title="ROTAS & ITINERÁRIOS"
+            value={stats.routes.total}
+            subtitle={`${stats.routes.rural} rurais | ${stats.routes.urban} urbanas`}
+            accentClassName="border-l-cyan-500"
+            valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
+            statusBadge={
+              <Badge variant="outline" className="border-cyan-500 text-cyan-500 font-mono text-[11px]">
+                {stats.routes.active} ativas hoje
+              </Badge>
+            }
+          />
+        </div>
+
+        <div onClick={() => onNavigateTab?.('alunos')} className="cursor-pointer transition-transform hover:scale-[1.01]">
+          <KpiCard
+            title="ALUNOS TRANSPORTADOS"
+            value={stats.students.total_transported}
+            subtitle={`Elegibilidade PNATE: ${pnatePercentage}%`}
+            accentClassName="border-l-amber-500"
+            valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
+            statusBadge={
               <Badge variant="outline" className="border-amber-500 text-amber-500 font-mono text-[11px]">
-                {stats.vehicles.pending_inspection} vistoria(s) pendente(s)
+                {stats.students.pnate_eligible} alunos PNATE (&gt; 2 km)
               </Badge>
-            ) : (
-              <Badge variant="outline" className="border-emerald-500 text-emerald-500 font-mono text-[11px]">
-                Frota 100% inspecionada
-              </Badge>
-            )
-          }
-        />
-
-        <KpiCard
-          title="CONDUTORES HABILITADOS"
-          value={stats.drivers.total}
-          subtitle="Conformidade CTB Art. 138"
-          accentClassName="border-l-indigo-500"
-          valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
-          statusBadge={
-            stats.drivers.expired_cnh > 0 ? (
-              <Badge variant="outline" className="border-rose-500 text-rose-500 font-mono text-[11px]">
-                {stats.drivers.expired_cnh} CNH vencida
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="border-emerald-500 text-emerald-500 font-mono text-[11px]">
-                CNH D/E em dia
-              </Badge>
-            )
-          }
-        />
-
-        <KpiCard
-          title="ROTAS & ITINERÁRIOS"
-          value={stats.routes.total}
-          subtitle={`${stats.routes.rural} rurais | ${stats.routes.urban} urbanas`}
-          accentClassName="border-l-cyan-500"
-          valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
-          statusBadge={
-            <Badge variant="outline" className="border-cyan-500 text-cyan-500 font-mono text-[11px]">
-              {stats.routes.active} ativas hoje
-            </Badge>
-          }
-        />
-
-        <KpiCard
-          title="ALUNOS TRANSPORTADOS"
-          value={stats.students.total_transported}
-          subtitle={`Elegibilidade PNATE: ${pnatePercentage}%`}
-          accentClassName="border-l-amber-500"
-          valueClassName="font-mono tabular-nums text-slate-900 dark:text-slate-100"
-          statusBadge={
-            <Badge variant="outline" className="border-amber-500 text-amber-500 font-mono text-[11px]">
-              {stats.students.pnate_eligible} alunos PNATE (&gt; 2 km)
-            </Badge>
-          }
-        />
+            }
+          />
+        </div>
       </div>
 
-      {/* Semáforo de Alertas Fiscais e Regulatórios */}
+      {/* Semáforo de Alertas Fiscais e Regulatórios com onAction funcional */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <AlertCard
           priority="danger"
@@ -210,6 +270,7 @@ export const TransportDashboardPage: React.FC = () => {
           statusLabel="CRÍTICO"
           tag="REGULARIDADE FISCAL"
           actionLabel="Verificar Veículos"
+          onAction={() => onNavigateTab?.('veiculos')}
         />
 
         <AlertCard
@@ -223,6 +284,7 @@ export const TransportDashboardPage: React.FC = () => {
           statusLabel={stats.drivers.expired_cnh > 0 ? 'ATENÇÃO' : 'REGULAR'}
           tag="CTB ART. 138"
           actionLabel="Verificar Condutores"
+          onAction={() => onNavigateTab?.('equipe')}
         />
 
         <AlertCard
@@ -231,12 +293,29 @@ export const TransportDashboardPage: React.FC = () => {
           description={`${stats.students.pnate_eligible} estudantes da zona rural possuem percurso casa-escola superior a 2,0 km elegíveis para a quota de transferência voluntária.`}
           statusLabel="CONFORME"
           tag="REPASSE FNDE"
-          actionLabel="Exportar Relatório"
+          actionLabel="Ver Relatórios"
+          onAction={() => onNavigateTab?.('relatorios')}
         />
       </div>
 
-      {/* Visualizador de Mapa Georreferenciado */}
-      <TransportMapViewer routes={mockRoutes} height="460px" />
+      {/* Visualizador de Mapa Georreferenciado Ampliado com Interatividade */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-200 flex items-center gap-2">
+            <Navigation className="w-4 h-4 text-emerald-500" />
+            Visão Geral Georreferenciada da Rede de Transporte
+          </h2>
+          <span className="text-xs text-slate-500 font-mono">
+            Clique em qualquer ponto do mapa para abrir a ficha detalhada
+          </span>
+        </div>
+        <TransportMapViewer
+          routes={routes}
+          stops={stops}
+          height="620px"
+          showCoordinatesTooltip={true}
+        />
+      </div>
     </div>
   );
 };

@@ -1,13 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Card,
   CardContent,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  DataTable,
   Badge,
   Button,
   Input,
@@ -53,8 +49,9 @@ const initialSchoolForm = {
 
 export const SchoolManagementPage: React.FC = () => {
   const [schools, setSchools] = useState<SchoolRecord[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [showMap, setShowMap] = useState(false);
+  const [showMap, setShowMap] = useState(true);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -64,6 +61,7 @@ export const SchoolManagementPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
 
   const fetchSchools = async () => {
+    setLoading(true);
     try {
       const res = await apiClient.get('/transport/schools');
       if (res.data && Array.isArray(res.data.data)) {
@@ -71,6 +69,8 @@ export const SchoolManagementPage: React.FC = () => {
       }
     } catch {
       // Fallback
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -102,7 +102,7 @@ export const SchoolManagementPage: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name) {
-      setFormError('Informe o nome da escola.');
+      setFormError('Informe o nome da unidade escolar.');
       return;
     }
 
@@ -111,9 +111,9 @@ export const SchoolManagementPage: React.FC = () => {
     try {
       const payload = {
         name: formData.name,
-        inep_code: formData.inep_code || null,
+        inep_code: formData.inep_code,
         zone: formData.zone,
-        address: formData.address || null,
+        address: formData.address,
         latitude: Number(formData.latitude),
         longitude: Number(formData.longitude),
       };
@@ -127,7 +127,7 @@ export const SchoolManagementPage: React.FC = () => {
       await fetchSchools();
       setIsModalOpen(false);
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Falha ao salvar dados da unidade escolar.');
+      setFormError(err.response?.data?.message || 'Falha ao salvar escola.');
     } finally {
       setSaving(false);
     }
@@ -143,31 +143,124 @@ export const SchoolManagementPage: React.FC = () => {
     }
   };
 
-  const filteredSchools = schools.filter(
-    (sc) =>
-      sc.name.toLowerCase().includes(search.toLowerCase()) ||
-      sc.inep_code.includes(search) ||
-      (sc.address && sc.address.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredSchools = useMemo(() => {
+    return schools.filter(
+      (s) =>
+        s.name.toLowerCase().includes(search.toLowerCase()) ||
+        s.inep_code.includes(search) ||
+        s.address.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [schools, search]);
 
-  const schoolStops = schools.map((s) => ({
-    id: s.id,
-    name: s.name,
-    latitude: s.latitude,
-    longitude: s.longitude,
-    zone_type: s.zone,
-  }));
+  const schoolStops = useMemo(() => {
+    return filteredSchools.map((s) => ({
+      id: s.id,
+      name: s.name,
+      latitude: Number(s.latitude),
+      longitude: Number(s.longitude),
+      zone_type: s.zone,
+      description: `${s.total_transported_students} alunos transportados | ${s.routes_count} rotas vinculadas`,
+      students_count: s.total_transported_students,
+    }));
+  }, [filteredSchools]);
+
+  const columns = useMemo<ColumnDef<SchoolRecord>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'INEP / ESCOLA',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              <School className="w-3.5 h-3.5 text-emerald-500" />
+              {row.original.name}
+            </div>
+            <div className="font-mono text-[11px] text-slate-500 tabular-nums">INEP: {row.original.inep_code || '-'}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'address',
+        header: 'LOCALIZAÇÃO / ENDEREÇO',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="text-slate-700 dark:text-slate-300">{row.original.address || 'Sem endereço informado'}</div>
+            <div className="font-mono text-[11px] text-slate-400 tabular-nums">
+              Lat: {Number(row.original.latitude).toFixed(4)} | Lng: {Number(row.original.longitude).toFixed(4)}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'zone',
+        header: 'ZONA',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-[10px] capitalize">
+            {row.original.zone === 'rural' ? 'Zona Rural' : 'Zona Urbana'}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'routes_count',
+        header: 'ROTAS ATENDENDO',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 font-mono text-xs tabular-nums font-semibold text-slate-800 dark:text-slate-200">
+            <RouteIcon className="w-3.5 h-3.5 text-cyan-500" />
+            {row.original.routes_count} rota(s)
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'total_transported_students',
+        header: 'ALUNOS TRANSPORTADOS',
+        cell: ({ row }) => (
+          <div className="flex items-center gap-1 font-mono text-xs tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
+            <Users className="w-3.5 h-3.5" />
+            {row.original.total_transported_students} alunos
+          </div>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEdit(row.original)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+              title="Editar Escola"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+              title="Excluir Escola"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <School className="w-6 h-6 text-emerald-500" />
-            Unidades Escolares Atendidas
+            Polos & Unidades Escolares Atendidas
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Cadastro de escolas polos e pontos de destino, código INEP/MEC e cruzamento de rotas de atendimento.
+            Gestão de geolocalização dos polos escolares municipais e estaduais atendidos pelas rotas do PNATE/SETE.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,10 +268,10 @@ export const SchoolManagementPage: React.FC = () => {
             variant="outline"
             size="sm"
             onClick={() => setShowMap(!showMap)}
-            className="text-xs flex items-center gap-1.5"
+            className="flex items-center gap-1.5 text-xs"
           >
-            <Compass className="w-4 h-4 text-cyan-500" />
-            {showMap ? 'Ocultar Mapa' : 'Ver Mapa Georreferenciado'}
+            <MapPin className="w-4 h-4 text-emerald-500" />
+            {showMap ? 'Ocultar Mapa' : 'Exibir Mapa'}
           </Button>
           <Button
             onClick={handleOpenCreate}
@@ -190,16 +283,23 @@ export const SchoolManagementPage: React.FC = () => {
         </div>
       </div>
 
+      {/* Mapa Superior Ampliado */}
       {showMap && (
-        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="p-3 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-            <span>Mapa de Distribuição das Unidades Escolares ({schools.length} escolas mapeadas)</span>
-            <span className="text-[11px] text-slate-500 font-mono">Passe o mouse ou clique sobre o ponto para ver coordenadas</span>
+        <Card className="p-0 overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
+          <div className="bg-slate-50 dark:bg-slate-900/60 p-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <span className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+              <Compass className="w-4 h-4 text-emerald-500" />
+              Georreferenciamento de Polos Escolares ({filteredSchools.length} escolas plotadas)
+            </span>
+            <span className="text-[11px] text-slate-500">
+              Clique em qualquer polo escolar no mapa para visualizar os detalhes completos
+            </span>
           </div>
           <TransportMapViewer
             stops={schoolStops}
             interactive={true}
-            className="h-80 w-full"
+            height="580px"
+            className="h-[580px] w-full"
             showCoordinatesTooltip={true}
           />
         </Card>
@@ -215,86 +315,22 @@ export const SchoolManagementPage: React.FC = () => {
         />
       </div>
 
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-              <TableHead className="text-xs font-semibold">INEP / ESCOLA</TableHead>
-              <TableHead className="text-xs font-semibold">LOCALIZAÇÃO / ENDEREÇO</TableHead>
-              <TableHead className="text-xs font-semibold text-center">ZONA</TableHead>
-              <TableHead className="text-xs font-semibold text-center">ROTAS ATENDENDO</TableHead>
-              <TableHead className="text-xs font-semibold text-right">ALUNOS TRANSPORTADOS</TableHead>
-              <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredSchools.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                  Nenhuma escola encontrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredSchools.map((school) => (
-                <TableRow key={school.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <TableCell className="text-xs">
-                    <div className="font-bold text-slate-900 dark:text-slate-100">{school.name}</div>
-                    <div className="font-mono text-[11px] text-slate-500 tabular-nums">INEP: {school.inep_code}</div>
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <div className="text-slate-700 dark:text-slate-300">{school.address}</div>
-                    <div className="font-mono text-[11px] text-slate-400 tabular-nums">
-                      Lat: {Number(school.latitude).toFixed(4)} | Lng: {Number(school.longitude).toFixed(4)}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className="text-[10px] capitalize">
-                      {school.zone === 'rural' ? 'Zona Rural' : 'Zona Urbana'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-center font-mono text-xs tabular-nums font-semibold">
-                    <div className="flex items-center justify-center gap-1 text-slate-800 dark:text-slate-200">
-                      <RouteIcon className="w-3.5 h-3.5 text-cyan-500" />
-                      {school.routes_count} rota(s)
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums font-bold text-emerald-600 dark:text-emerald-400">
-                    <div className="flex items-center justify-end gap-1">
-                      <Users className="w-3.5 h-3.5" />
-                      {school.total_transported_students} alunos
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(school)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(school.id)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+        <DataTable
+          columns={columns}
+          data={filteredSchools}
+          loading={loading}
+          emptyText="Nenhuma escola encontrada com os filtros atuais."
+          pageSize={10}
+          pagination={true}
+        />
       </Card>
 
       {/* MODAL: UNIDADE ESCOLAR */}
       <Modal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        size="2xl"
         title={editingId ? 'Editar Unidade Escolar' : 'Cadastrar Unidade Escolar'}
       >
         <form onSubmit={handleSave} className="space-y-4">
@@ -328,7 +364,7 @@ export const SchoolManagementPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Zona de Atendimento *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Zona de Localização *</label>
               <Select
                 value={formData.zone}
                 onChange={(val: any) => setFormData({ ...formData, zone: val as any })}
@@ -377,7 +413,7 @@ export const SchoolManagementPage: React.FC = () => {
 
           {/* Mini-map picker inside modal */}
           <div className="border border-slate-200 dark:border-slate-800 rounded-md overflow-hidden">
-            <div className="p-2 bg-slate-50 dark:bg-slate-900/60 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between">
+            <div className="p-2.5 bg-slate-50 dark:bg-slate-900/60 text-[11px] text-slate-600 dark:text-slate-400 flex items-center justify-between">
               <span>Clique no mapa abaixo para selecionar a localização exata da escola:</span>
               <span className="font-mono text-cyan-500 font-bold">
                 {Number(formData.latitude).toFixed(4)}, {Number(formData.longitude).toFixed(4)}
@@ -387,6 +423,7 @@ export const SchoolManagementPage: React.FC = () => {
               center={[Number(formData.latitude), Number(formData.longitude)]}
               zoom={13}
               interactive={true}
+              height="240px"
               onPointAdded={(lat, lng) => {
                 setFormData((prev) => ({ ...prev, latitude: lat, longitude: lng }));
               }}
@@ -399,7 +436,7 @@ export const SchoolManagementPage: React.FC = () => {
                   zone_type: formData.zone,
                 },
               ]}
-              className="h-44 w-full"
+              className="h-60 w-full"
               showCoordinatesTooltip={false}
             />
           </div>

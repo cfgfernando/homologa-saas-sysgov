@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Card,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  DataTable,
   Badge,
   Button,
   Input,
@@ -15,13 +11,10 @@ import {
 } from '@sysgov/ui';
 import {
   Users,
-  ShieldCheck,
   Plus,
   Search,
   CheckCircle2,
   AlertTriangle,
-  UserCheck,
-  IdCard,
   Pencil,
   Trash2,
   Save,
@@ -101,19 +94,15 @@ export const DriverAndMonitorPage: React.FC = () => {
         setDrivers(
           res.data.data.map((d: any) => ({
             id: d.id,
-            name: d.pessoa?.nome || 'Condutor ' + d.id,
-            cpf: d.pessoa?.documento || '000.000.000-00',
-            cnh_number: d.cnh_number,
+            name: d.user?.name || d.pessoa?.nome || 'Motorista ' + d.id,
+            cpf: d.cpf || d.pessoa?.cpf || '000.000.000-00',
+            cnh_number: d.cnh_number || '00000000000',
             cnh_category: d.cnh_category || 'D',
-            cnh_due_date: d.cnh_due_date ? String(d.cnh_due_date).split('T')[0] : '2028-01-01',
-            school_course_due_date: d.school_transport_course_due_date
-              ? String(d.school_transport_course_due_date).split('T')[0]
-              : '2028-01-01',
-            toxicological_due_date: d.toxicological_due_date
-              ? String(d.toxicological_due_date).split('T')[0]
-              : '2027-01-01',
-            is_compliant: d.is_compliant !== undefined ? Boolean(d.is_compliant) : true,
-            is_active: Boolean(d.is_active),
+            cnh_due_date: d.cnh_due_date ? String(d.cnh_due_date).split('T')[0] : '2028-06-30',
+            school_course_due_date: d.school_course_due_date ? String(d.school_course_due_date).split('T')[0] : '2028-12-31',
+            toxicological_due_date: d.toxicological_due_date ? String(d.toxicological_due_date).split('T')[0] : '2027-12-31',
+            is_compliant: Boolean(d.is_compliant),
+            is_active: Boolean(d.is_active ?? true),
           }))
         );
       }
@@ -129,13 +118,13 @@ export const DriverAndMonitorPage: React.FC = () => {
         setMonitors(
           res.data.data.map((m: any) => ({
             id: m.id,
-            name: m.pessoa?.nome || 'Monitor ' + m.id,
-            cpf: m.pessoa?.documento || '000.000.000-00',
-            rg: m.rg || 'Não informado',
-            phone: m.phone || '(41) 99999-9999',
-            assigned_route_id: m.assigned_route_id,
-            assigned_route: m.route?.code || (m.assigned_route_id ? 'ROTA-' + m.assigned_route_id : 'Não alocado'),
-            is_active: Boolean(m.is_active),
+            name: m.user?.name || m.pessoa?.nome || 'Monitor ' + m.id,
+            cpf: m.cpf || m.pessoa?.cpf || '000.000.000-00',
+            rg: m.rg || '00.000.000-0',
+            phone: m.phone || '(00) 00000-0000',
+            assigned_route_id: m.assigned_route_id || null,
+            assigned_route: m.assigned_route?.code || (m.assigned_route_id ? `Rota #${m.assigned_route_id}` : 'Sem Rota'),
+            is_active: Boolean(m.is_active ?? true),
           }))
         );
       }
@@ -148,7 +137,13 @@ export const DriverAndMonitorPage: React.FC = () => {
     try {
       const res = await apiClient.get('/transport/routes');
       if (res.data && Array.isArray(res.data.data)) {
-        setRoutes(res.data.data);
+        setRoutes(
+          res.data.data.map((r: any) => ({
+            id: r.id,
+            code: r.code || 'ROTA-' + r.id,
+            name: r.name || 'Rota ' + r.id,
+          }))
+        );
       }
     } catch {
       // Fallback
@@ -156,9 +151,10 @@ export const DriverAndMonitorPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDrivers();
-    fetchMonitors();
-    fetchRoutes();
+    setLoading(true);
+    Promise.all([fetchDrivers(), fetchMonitors(), fetchRoutes()]).finally(() => {
+      setLoading(false);
+    });
   }, []);
 
   // Driver handlers
@@ -169,9 +165,14 @@ export const DriverAndMonitorPage: React.FC = () => {
     setIsDriverModalOpen(true);
   };
 
-  const handleOpenEditDriver = (driver: DriverItem) => {
-    setEditingDriverId(driver.id);
-    setDriverFormData({ ...driver });
+  const handleOpenEditDriver = (d: DriverItem) => {
+    setEditingDriverId(d.id);
+    setDriverFormData({
+      ...d,
+      cnh_due_date: d.cnh_due_date ? String(d.cnh_due_date).split('T')[0] : '',
+      school_course_due_date: d.school_course_due_date ? String(d.school_course_due_date).split('T')[0] : '',
+      toxicological_due_date: d.toxicological_due_date ? String(d.toxicological_due_date).split('T')[0] : '',
+    });
     setFormError(null);
     setIsDriverModalOpen(true);
   };
@@ -179,7 +180,7 @@ export const DriverAndMonitorPage: React.FC = () => {
   const handleSaveDriver = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!driverFormData.name || !driverFormData.cnh_number) {
-      setFormError('Informe o nome do condutor e o número da CNH.');
+      setFormError('Preencha os campos obrigatórios (Nome e CNH).');
       return;
     }
 
@@ -192,9 +193,10 @@ export const DriverAndMonitorPage: React.FC = () => {
         cnh_number: driverFormData.cnh_number,
         cnh_category: driverFormData.cnh_category,
         cnh_due_date: driverFormData.cnh_due_date,
-        school_transport_course_due_date: driverFormData.school_course_due_date,
+        school_course_due_date: driverFormData.school_course_due_date,
         toxicological_due_date: driverFormData.toxicological_due_date,
-        is_active: driverFormData.is_active,
+        is_compliant: driverFormData.is_compliant ?? true,
+        is_active: driverFormData.is_active ?? true,
       };
 
       if (editingDriverId) {
@@ -281,18 +283,200 @@ export const DriverAndMonitorPage: React.FC = () => {
     }
   };
 
-  const filteredDrivers = drivers.filter(
-    (d) =>
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.cpf.includes(search) ||
-      d.cnh_number.includes(search)
+  const filteredDrivers = useMemo(() => {
+    return drivers.filter(
+      (d) =>
+        d.name.toLowerCase().includes(search.toLowerCase()) ||
+        d.cpf.includes(search) ||
+        d.cnh_number.includes(search)
+    );
+  }, [drivers, search]);
+
+  const filteredMonitors = useMemo(() => {
+    return monitors.filter(
+      (m) =>
+        m.name.toLowerCase().includes(search.toLowerCase()) ||
+        m.cpf.includes(search) ||
+        m.phone.includes(search)
+    );
+  }, [monitors, search]);
+
+  const driverColumns = useMemo<ColumnDef<DriverItem>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'MOTORISTA / CPF',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-bold text-slate-900 dark:text-slate-100">{row.original.name}</div>
+            <div className="font-mono text-[11px] text-slate-500 tabular-nums">{row.original.cpf}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'cnh_number',
+        header: 'Nº CNH / CATEGORIA',
+        cell: ({ row }) => (
+          <div className="font-mono text-xs tabular-nums font-semibold">
+            <div>{row.original.cnh_number}</div>
+            <Badge variant="outline" className="border-cyan-500 text-cyan-500 text-[10px] py-0 px-1 mt-0.5">
+              Cat. {row.original.cnh_category}
+            </Badge>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'cnh_due_date',
+        header: 'VALIDADE CNH',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {row.original.cnh_due_date ? new Date(row.original.cnh_due_date).toLocaleDateString('pt-BR') : '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'school_course_due_date',
+        header: 'CURSO TRANSPORTE',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {row.original.school_course_due_date ? new Date(row.original.school_course_due_date).toLocaleDateString('pt-BR') : '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'toxicological_due_date',
+        header: 'TOXICOLÓGICO',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {row.original.toxicological_due_date ? new Date(row.original.toxicological_due_date).toLocaleDateString('pt-BR') : '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'is_compliant',
+        header: 'STATUS CTB 138',
+        cell: ({ row }) =>
+          row.original.is_compliant ? (
+            <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Conforme
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-rose-500 text-rose-500 text-[10px]">
+              <AlertTriangle className="w-3 h-3 mr-1 inline" /> Expirado / Pendente
+            </Badge>
+          ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEditDriver(row.original)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+              title="Editar Condutor"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDeleteDriver(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+              title="Excluir Condutor"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
   );
 
-  const filteredMonitors = monitors.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.cpf.includes(search) ||
-      m.phone.includes(search)
+  const monitorColumns = useMemo<ColumnDef<MonitorItem>[]>(
+    () => [
+      {
+        accessorKey: 'name',
+        header: 'MONITOR / CPF',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-bold text-slate-900 dark:text-slate-100">{row.original.name}</div>
+            <div className="font-mono text-[11px] text-slate-500 tabular-nums">{row.original.cpf}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'rg',
+        header: 'DOCUMENTO RG',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-800 dark:text-slate-200">
+            {row.original.rg || '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'phone',
+        header: 'CONTATO TELEFÔNICO',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {row.original.phone || '-'}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'assigned_route',
+        header: 'ROTA DESIGNADA',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="border-cyan-500 text-cyan-500 text-[10px]">
+            {row.original.assigned_route || 'Sem Rota'}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'is_active',
+        header: 'STATUS',
+        cell: ({ row }) =>
+          row.original.is_active ? (
+            <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Ativo
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-slate-500 text-slate-400 text-[10px]">
+              Inativo
+            </Badge>
+          ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEditMonitor(row.original)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+              title="Editar Monitor"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDeleteMonitor(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+              title="Excluir Monitor"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
   );
 
   return (
@@ -347,151 +531,26 @@ export const DriverAndMonitorPage: React.FC = () => {
       </div>
 
       {subTab === 'drivers' ? (
-        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-                <TableHead className="text-xs font-semibold">MOTORISTA / CPF</TableHead>
-                <TableHead className="text-xs font-semibold">Nº CNH / CATEGORIA</TableHead>
-                <TableHead className="text-xs font-semibold">VALIDADE CNH</TableHead>
-                <TableHead className="text-xs font-semibold">CURSO TRANSPORTE</TableHead>
-                <TableHead className="text-xs font-semibold">TOXICOLÓGICO</TableHead>
-                <TableHead className="text-xs font-semibold text-center">STATUS CTB 138</TableHead>
-                <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredDrivers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
-                    Nenhum motorista cadastrado.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredDrivers.map((d) => (
-                  <TableRow key={d.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <TableCell className="text-xs">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">{d.name}</div>
-                      <div className="font-mono text-[11px] text-slate-500 tabular-nums">{d.cpf}</div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums font-semibold">
-                      <div>{d.cnh_number}</div>
-                      <Badge variant="outline" className="border-cyan-500 text-cyan-500 text-[10px] py-0 px-1 mt-0.5">
-                        Cat. {d.cnh_category}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                      {d.cnh_due_date ? new Date(d.cnh_due_date).toLocaleDateString('pt-BR') : '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                      {d.school_course_due_date ? new Date(d.school_course_due_date).toLocaleDateString('pt-BR') : '-'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                      {d.toxicological_due_date ? new Date(d.toxicological_due_date).toLocaleDateString('pt-BR') : '-'}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {d.is_compliant ? (
-                        <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                          <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Conforme
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-rose-500 text-rose-500 text-[10px]">
-                          <AlertTriangle className="w-3 h-3 mr-1 inline" /> Expirado / Pendente
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEditDriver(d)}
-                          className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteDriver(d.id)}
-                          className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+          <DataTable
+            columns={driverColumns}
+            data={filteredDrivers}
+            loading={loading}
+            emptyText="Nenhum condutor cadastrado ou encontrado com os filtros atuais."
+            pageSize={10}
+            pagination={true}
+          />
         </Card>
       ) : (
-        <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-                <TableHead className="text-xs font-semibold">MONITOR / CPF</TableHead>
-                <TableHead className="text-xs font-semibold">DOCUMENTO RG</TableHead>
-                <TableHead className="text-xs font-semibold">CONTATO TELEFÔNICO</TableHead>
-                <TableHead className="text-xs font-semibold">ROTA DESIGNADA</TableHead>
-                <TableHead className="text-xs font-semibold text-center">STATUS</TableHead>
-                <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredMonitors.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-xs text-slate-500">
-                    Nenhum monitor cadastrado.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredMonitors.map((m) => (
-                  <TableRow key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                    <TableCell className="text-xs">
-                      <div className="font-bold text-slate-900 dark:text-slate-100">{m.name}</div>
-                      <div className="font-mono text-[11px] text-slate-500 tabular-nums">{m.cpf}</div>
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                      {m.rg}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                      {m.phone}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      {m.assigned_route}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                        Ativo
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleOpenEditMonitor(m)}
-                          className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDeleteMonitor(m.id)}
-                          className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+        <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+          <DataTable
+            columns={monitorColumns}
+            data={filteredMonitors}
+            loading={loading}
+            emptyText="Nenhum monitor cadastrado ou encontrado com os filtros atuais."
+            pageSize={10}
+            pagination={true}
+          />
         </Card>
       )}
 
@@ -499,6 +558,7 @@ export const DriverAndMonitorPage: React.FC = () => {
       <Modal
         open={isDriverModalOpen}
         onOpenChange={setIsDriverModalOpen}
+        size="2xl"
         title={editingDriverId ? 'Editar Motorista (CTB 138)' : 'Novo Motorista Escolar (CTB 138)'}
       >
         <form onSubmit={handleSaveDriver} className="space-y-4">
@@ -605,6 +665,7 @@ export const DriverAndMonitorPage: React.FC = () => {
       <Modal
         open={isMonitorModalOpen}
         onOpenChange={setIsMonitorModalOpen}
+        size="2xl"
         title={editingMonitorId ? 'Editar Monitor de Bordo' : 'Novo Monitor de Bordo'}
       >
         <form onSubmit={handleSaveMonitor} className="space-y-4">

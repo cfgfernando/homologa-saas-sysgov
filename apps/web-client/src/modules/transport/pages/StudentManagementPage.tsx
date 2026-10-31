@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Card,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  DataTable,
   Badge,
   Button,
   Input,
@@ -60,6 +56,7 @@ const initialStudentForm: Partial<StudentAllocationItem> = {
 export const StudentManagementPage: React.FC = () => {
   const [students, setStudents] = useState<StudentAllocationItem[]>([]);
   const [routes, setRoutes] = useState<{ id: number; code: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [routeFilter, setRouteFilter] = useState('');
 
@@ -100,7 +97,13 @@ export const StudentManagementPage: React.FC = () => {
     try {
       const res = await apiClient.get('/transport/routes');
       if (res.data && Array.isArray(res.data.data)) {
-        setRoutes(res.data.data);
+        setRoutes(
+          res.data.data.map((r: any) => ({
+            id: r.id,
+            code: r.code || 'ROTA-' + r.id,
+            name: r.name || 'Rota ' + r.id,
+          }))
+        );
       }
     } catch {
       // Fallback
@@ -108,20 +111,26 @@ export const StudentManagementPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchAllocations();
-    fetchRoutesList();
+    setLoading(true);
+    Promise.all([fetchAllocations(), fetchRoutesList()]).finally(() => {
+      setLoading(false);
+    });
   }, []);
 
   const handleOpenCreate = () => {
     setEditingId(null);
-    setFormData(initialStudentForm);
+    setFormData({
+      ...initialStudentForm,
+      route_id: routes[0]?.id || 1,
+      route_code: routes[0]?.code || 'ROTA-01',
+    });
     setFormError(null);
     setIsModalOpen(true);
   };
 
-  const handleOpenEdit = (student: StudentAllocationItem) => {
-    setEditingId(student.id);
-    setFormData({ ...student });
+  const handleOpenEdit = (s: StudentAllocationItem) => {
+    setEditingId(s.id);
+    setFormData({ ...s });
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -129,21 +138,20 @@ export const StudentManagementPage: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.student_name) {
-      setFormError('Informe o nome do estudante.');
+      setFormError('Informe o nome do aluno.');
       return;
     }
 
     setSaving(true);
     setFormError(null);
     try {
-      const isEligible = (formData.distance_home_school_km || 0) >= 2.0;
       const payload = {
-        student_name: formData.student_name,
-        route_id: formData.route_id || routes[0]?.id || 1,
-        shift: formData.shift || 'morning',
-        distance_km: formData.distance_home_school_km || 2.5,
-        has_special_needs: Boolean(formData.has_special_needs),
-        census_eligible_pnate: isEligible,
+        student_id: editingId || 1,
+        route_id: formData.route_id,
+        shift: formData.shift,
+        distance_home_school_km: Number(formData.distance_home_school_km),
+        is_pnate_eligible: Number(formData.distance_home_school_km || 0) >= 2.0,
+        special_needs: formData.has_special_needs,
         status: formData.status || 'active',
       };
 
@@ -156,14 +164,14 @@ export const StudentManagementPage: React.FC = () => {
       await fetchAllocations();
       setIsModalOpen(false);
     } catch (err: any) {
-      setFormError(err.response?.data?.message || 'Falha ao salvar aluno.');
+      setFormError(err.response?.data?.message || 'Falha ao salvar dados do aluno.');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Confirma a remoção deste aluno do transporte escolar?')) return;
+    if (!window.confirm('Confirma a remoção da alocação de transporte deste aluno?')) return;
     try {
       await apiClient.delete(`/transport/allocations/${id}`);
       setStudents((prev) => prev.filter((s) => s.id !== id));
@@ -172,35 +180,146 @@ export const StudentManagementPage: React.FC = () => {
     }
   };
 
-  const filteredStudents = students.filter((s) => {
-    const matchesSearch =
-      s.student_name.toLowerCase().includes(search.toLowerCase()) ||
-      s.registration.toLowerCase().includes(search.toLowerCase()) ||
-      s.school_name.toLowerCase().includes(search.toLowerCase());
-    const matchesRoute = !routeFilter || s.route_code === routeFilter;
-    return matchesSearch && matchesRoute;
-  });
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) => {
+      const matchesSearch =
+        s.student_name.toLowerCase().includes(search.toLowerCase()) ||
+        s.registration.toLowerCase().includes(search.toLowerCase()) ||
+        s.school_name.toLowerCase().includes(search.toLowerCase());
+      const matchesRoute = !routeFilter || s.route_code === routeFilter;
+      return matchesSearch && matchesRoute;
+    });
+  }, [students, search, routeFilter]);
+
+  const columns = useMemo<ColumnDef<StudentAllocationItem>[]>(
+    () => [
+      {
+        accessorKey: 'student_name',
+        header: 'MATRÍCULA / ALUNO',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+              {row.original.student_name}
+              {row.original.has_special_needs && (
+                <Badge variant="outline" className="border-indigo-500 text-indigo-500 text-[10px] py-0 px-1">
+                  <Accessibility className="w-3 h-3 mr-0.5 inline" /> PCD
+                </Badge>
+              )}
+            </div>
+            <div className="font-mono text-[11px] text-slate-500 tabular-nums">{row.original.registration}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'school_name',
+        header: 'UNIDADE ESCOLAR',
+        cell: ({ row }) => (
+          <span className="text-xs font-medium text-slate-800 dark:text-slate-200">
+            {row.original.school_name}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'route_code',
+        header: 'ROTA / PONTO DE EMBARQUE',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{row.original.route_code}</div>
+            <div className="text-[11px] text-slate-500 flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-amber-500" />
+              {row.original.stop_name}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'shift',
+        header: 'TURNO',
+        cell: ({ row }) => (
+          <Badge variant="outline" className="text-[10px] capitalize">
+            {row.original.shift === 'morning' ? 'Matutino' : row.original.shift === 'afternoon' ? 'Vespertino' : 'Integral'}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'distance_home_school_km',
+        header: 'DISTÂNCIA',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums font-semibold text-slate-800 dark:text-slate-200">
+            {row.original.distance_home_school_km.toFixed(1)} km
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'census_eligible_pnate',
+        header: 'PNATE (FNDE)',
+        cell: ({ row }) =>
+          row.original.census_eligible_pnate ? (
+            <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
+              <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Elegível (&gt; 2 km)
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="border-slate-400 text-slate-500 text-[10px]">
+              Não Elegível
+            </Badge>
+          ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEdit(row.original)}
+              className="h-7 w-7 p-0 text-slate-600 hover:text-emerald-600"
+              title="Editar Aluno"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600"
+              title="Excluir Aluno"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6">
+      {/* Top Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-200 dark:border-slate-800">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100 flex items-center gap-2">
             <GraduationCap className="w-6 h-6 text-emerald-500" />
-            Gestão de Alunos Transportados
+            Alunos & Alocação PNATE
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Mapeamento de residência georreferenciada, trajeto casa-escola, ponto de embarque e elegibilidade ao PNATE.
+            Mapeamento de estudantes transportados, regras de elegibilidade FNDE/PNATE (&gt; 2km da escola) e censo escolar.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="flex items-center gap-1.5 text-xs font-mono">
-            <Upload className="w-4 h-4 text-slate-500" />
-            Importar Planilha (SETE/CSV)
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-300"
+            onClick={() => alert('Exportando relatório para sincronização com o Censo Escolar MEC/Inep...')}
+          >
+            <Upload className="w-4 h-4 text-emerald-500" />
+            Exportar Censo Inep
           </Button>
           <Button
             onClick={handleOpenCreate}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs"
+            className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 text-xs font-semibold"
           >
             <Plus className="w-4 h-4" />
             Cadastrar Aluno
@@ -222,7 +341,7 @@ export const StudentManagementPage: React.FC = () => {
         <div className="w-full sm:w-48">
           <Select
             value={routeFilter}
-            onChange={(val) => setRouteFilter(String(val))}
+            onChange={(val: any) => setRouteFilter(String(val))}
             options={[
               { value: '', label: 'Todas as Rotas' },
               ...routes.map((r) => ({ value: r.code, label: r.code })),
@@ -231,94 +350,22 @@ export const StudentManagementPage: React.FC = () => {
         </div>
       </div>
 
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-              <TableHead className="text-xs font-semibold">MATRÍCULA / ALUNO</TableHead>
-              <TableHead className="text-xs font-semibold">UNIDADE ESCOLAR</TableHead>
-              <TableHead className="text-xs font-semibold">ROTA / PONTO DE EMBARQUE</TableHead>
-              <TableHead className="text-xs font-semibold text-center">TURNO</TableHead>
-              <TableHead className="text-xs font-semibold text-right">DISTÂNCIA</TableHead>
-              <TableHead className="text-xs font-semibold text-center">PNATE (FNDE)</TableHead>
-              <TableHead className="text-xs font-semibold text-right">AÇÕES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredStudents.map((s) => (
-              <TableRow key={s.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                <TableCell className="text-xs">
-                  <div className="font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                    {s.student_name}
-                    {s.has_special_needs && (
-                      <Badge variant="outline" className="border-indigo-500 text-indigo-500 text-[10px] py-0 px-1">
-                        <Accessibility className="w-3 h-3 mr-0.5 inline" /> PCD
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="font-mono text-[11px] text-slate-500 tabular-nums">{s.registration}</div>
-                </TableCell>
-                <TableCell className="text-xs font-medium text-slate-800 dark:text-slate-200">
-                  {s.school_name}
-                </TableCell>
-                <TableCell className="text-xs">
-                  <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{s.route_code}</div>
-                  <div className="text-[11px] text-slate-500 flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-amber-500" />
-                    {s.stop_name}
-                  </div>
-                </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline" className="text-[10px] capitalize">
-                    {s.shift === 'morning' ? 'Matutino' : s.shift === 'afternoon' ? 'Vespertino' : 'Integral'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right font-mono text-xs tabular-nums font-semibold text-slate-800 dark:text-slate-200">
-                  {s.distance_home_school_km.toFixed(1)} km
-                </TableCell>
-                <TableCell className="text-center">
-                  {s.census_eligible_pnate ? (
-                    <Badge variant="outline" className="border-emerald-500 text-emerald-500 text-[10px]">
-                      <CheckCircle2 className="w-3 h-3 mr-1 inline" /> Elegível (&gt; 2 km)
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="border-slate-400 text-slate-500 text-[10px]">
-                      Não Elegível
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleOpenEdit(s)}
-                      className="h-7 w-7 p-0 text-slate-600 hover:text-emerald-600"
-                      title="Editar Aluno"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(s.id)}
-                      className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600"
-                      title="Excluir Aluno"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+        <DataTable
+          columns={columns}
+          data={filteredStudents}
+          loading={loading}
+          emptyText="Nenhum aluno cadastrado ou encontrado com os filtros atuais."
+          pageSize={10}
+          pagination={true}
+        />
       </Card>
 
       {/* Modal de Criação / Edição de Aluno */}
       <Modal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
+        size="2xl"
         title={editingId ? 'Editar Aluno Transportado' : 'Cadastrar Aluno no Transporte Escolar'}
         description="Vincule o estudante à unidade escolar, rota de atendimento e calcule a elegibilidade PNATE."
       >
@@ -362,7 +409,7 @@ export const StudentManagementPage: React.FC = () => {
               </label>
               <Select
                 value={String(formData.route_id || '')}
-                onChange={(val) => {
+                onChange={(val: any) => {
                   const selRoute = routes.find((r) => String(r.id) === String(val));
                   setFormData({
                     ...formData,
@@ -396,7 +443,7 @@ export const StudentManagementPage: React.FC = () => {
               </label>
               <Select
                 value={formData.shift || 'morning'}
-                onChange={(val) => setFormData({ ...formData, shift: val as any })}
+                onChange={(val: any) => setFormData({ ...formData, shift: val as any })}
                 options={[
                   { value: 'morning', label: 'Matutino' },
                   { value: 'afternoon', label: 'Vespertino' },

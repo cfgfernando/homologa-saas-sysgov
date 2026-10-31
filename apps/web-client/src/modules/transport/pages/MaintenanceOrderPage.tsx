@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { ColumnDef } from '@tanstack/react-table';
 import {
   Card,
-  Table,
-  TableHeader,
-  TableRow,
-  TableHead,
-  TableBody,
-  TableCell,
+  DataTable,
   Badge,
   Button,
   Input,
@@ -17,11 +13,6 @@ import {
   Wrench,
   Plus,
   Search,
-  Calendar,
-  DollarSign,
-  Gauge,
-  CheckCircle2,
-  AlertTriangle,
   Pencil,
   Trash2,
   Save,
@@ -64,13 +55,14 @@ const initialOrderForm: MaintenanceFormData = {
 export const MaintenanceOrderPage: React.FC = () => {
   const [orders, setOrders] = useState<MaintenanceOrder[]>([]);
   const [vehicles, setVehicles] = useState<{ id: number; plate: string; model: string }[]>([]);
+  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [formData, setFormData] = useState(initialOrderForm);
+  const [formData, setFormData] = useState<MaintenanceFormData>(initialOrderForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -99,11 +91,17 @@ export const MaintenanceOrderPage: React.FC = () => {
     }
   };
 
-  const fetchVehicles = async () => {
+  const fetchVehiclesList = async () => {
     try {
       const res = await apiClient.get('/transport/vehicles');
       if (res.data && Array.isArray(res.data.data)) {
-        setVehicles(res.data.data);
+        setVehicles(
+          res.data.data.map((v: any) => ({
+            id: v.id,
+            plate: v.plate,
+            model: `${v.brand} ${v.model}`,
+          }))
+        );
       }
     } catch {
       // Fallback
@@ -111,22 +109,11 @@ export const MaintenanceOrderPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchOrders();
-    fetchVehicles();
-  }, []);
-
-  const formatCurrency = (cents: number) => {
-    return (cents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
+    setLoading(true);
+    Promise.all([fetchOrders(), fetchVehiclesList()]).finally(() => {
+      setLoading(false);
     });
-  };
-
-  const parseReaisToCents = (val: string): number => {
-    const cleaned = val.replace(/[^\d,.-]/g, '').replace('.', '').replace(',', '.');
-    const num = parseFloat(cleaned);
-    return isNaN(num) ? 0 : Math.round(num * 100);
-  };
+  }, []);
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -140,12 +127,13 @@ export const MaintenanceOrderPage: React.FC = () => {
 
   const handleOpenEdit = (order: MaintenanceOrder) => {
     setEditingId(order.id);
+    const reais = (order.amount_cents / 100).toFixed(2).replace('.', ',');
     setFormData({
       vehicle_id: order.vehicle_id,
       service_type: order.service_type,
       odometer_km: order.odometer_km,
       service_date: order.service_date,
-      amount_reais: (order.amount_cents / 100).toFixed(2).replace('.', ','),
+      amount_reais: reais,
       notes: order.notes,
     });
     setFormError(null);
@@ -154,15 +142,17 @@ export const MaintenanceOrderPage: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.vehicle_id) {
-      setFormError('Selecione um veículo.');
+    if (!formData.vehicle_id || !formData.service_date) {
+      setFormError('Informe o veículo e a data do serviço.');
       return;
     }
 
     setSaving(true);
     setFormError(null);
     try {
-      const cents = parseReaisToCents(formData.amount_reais);
+      const cleanVal = formData.amount_reais.replace(/\./g, '').replace(',', '.');
+      const cents = Math.round(parseFloat(cleanVal || '0') * 100);
+
       const payload = {
         vehicle_id: formData.vehicle_id,
         service_type: formData.service_type,
@@ -197,14 +187,16 @@ export const MaintenanceOrderPage: React.FC = () => {
     }
   };
 
-  const filteredOrders = orders.filter((o) => {
-    const matchesSearch =
-      o.order_number.toLowerCase().includes(search.toLowerCase()) ||
-      o.vehicle_plate.toLowerCase().includes(search.toLowerCase()) ||
-      o.notes.toLowerCase().includes(search.toLowerCase());
-    const matchesType = !typeFilter || o.service_type === typeFilter;
-    return matchesSearch && matchesType;
-  });
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchesSearch =
+        o.order_number.toLowerCase().includes(search.toLowerCase()) ||
+        o.vehicle_plate.toLowerCase().includes(search.toLowerCase()) ||
+        o.notes.toLowerCase().includes(search.toLowerCase());
+      const matchesType = !typeFilter || o.service_type === typeFilter;
+      return matchesSearch && matchesType;
+    });
+  }, [orders, search, typeFilter]);
 
   const getServiceTypeBadge = (type: string) => {
     switch (type) {
@@ -220,6 +212,89 @@ export const MaintenanceOrderPage: React.FC = () => {
         return <Badge variant="outline" className="text-[10px]">Inspeção</Badge>;
     }
   };
+
+  const columns = useMemo<ColumnDef<MaintenanceOrder>[]>(
+    () => [
+      {
+        accessorKey: 'order_number',
+        header: 'NÚMERO DA OS',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
+            {row.original.order_number}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'vehicle_plate',
+        header: 'VEÍCULO / MODELO',
+        cell: ({ row }) => (
+          <div className="text-xs">
+            <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{row.original.vehicle_plate}</div>
+            <div className="text-[11px] text-slate-500">{row.original.vehicle_model}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'service_type',
+        header: 'TIPO SERVIÇO',
+        cell: ({ row }) => getServiceTypeBadge(row.original.service_type),
+      },
+      {
+        accessorKey: 'odometer_km',
+        header: 'ODÔMETRO',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {row.original.odometer_km.toLocaleString('pt-BR')} km
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'service_date',
+        header: 'DATA',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
+            {new Date(row.original.service_date).toLocaleDateString('pt-BR')}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'amount_cents',
+        header: 'VALOR TOTAL',
+        cell: ({ row }) => (
+          <span className="font-mono text-xs tabular-nums font-bold text-slate-900 dark:text-slate-100">
+            R$ {(row.original.amount_cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </span>
+        ),
+      },
+      {
+        id: 'actions',
+        header: 'AÇÕES',
+        cell: ({ row }) => (
+          <div className="flex items-center justify-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleOpenEdit(row.original)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
+              title="Editar OS"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handleDelete(row.original.id)}
+              className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
+              title="Excluir OS"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    []
+  );
 
   return (
     <div className="space-y-6">
@@ -268,81 +343,23 @@ export const MaintenanceOrderPage: React.FC = () => {
         </div>
       </div>
 
-      <Card className="overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-slate-50 dark:bg-slate-900/50">
-              <TableHead className="text-xs font-semibold">NÚMERO DA OS</TableHead>
-              <TableHead className="text-xs font-semibold">VEÍCULO / MODELO</TableHead>
-              <TableHead className="text-xs font-semibold text-center">TIPO SERVIÇO</TableHead>
-              <TableHead className="text-xs font-semibold">ODÔMETRO</TableHead>
-              <TableHead className="text-xs font-semibold">DATA</TableHead>
-              <TableHead className="text-xs font-semibold text-right">VALOR TOTAL</TableHead>
-              <TableHead className="text-xs font-semibold text-center w-24">AÇÕES</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredOrders.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-xs text-slate-500">
-                  Nenhuma ordem de serviço cadastrada.
-                </TableCell>
-              </TableRow>
-            ) : (
-              filteredOrders.map((order) => (
-                <TableRow key={order.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
-                  <TableCell className="font-mono text-xs font-bold text-slate-900 dark:text-slate-100">
-                    {order.order_number}
-                  </TableCell>
-                  <TableCell className="text-xs">
-                    <div className="font-mono font-bold text-slate-800 dark:text-slate-200">{order.vehicle_plate}</div>
-                    <div className="text-[11px] text-slate-500">{order.vehicle_model}</div>
-                  </TableCell>
-                  <TableCell className="text-center">{getServiceTypeBadge(order.service_type)}</TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-700 dark:text-slate-300">
-                    <div className="flex items-center gap-1">
-                      <Gauge className="w-3.5 h-3.5 text-slate-400" />
-                      {order.odometer_km.toLocaleString('pt-BR')} km
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-mono text-xs tabular-nums text-slate-600 dark:text-slate-400">
-                    {order.service_date ? new Date(order.service_date).toLocaleDateString('pt-BR') : '-'}
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs tabular-nums font-bold text-slate-900 dark:text-slate-100">
-                    {formatCurrency(order.amount_cents)}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleOpenEdit(order)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-cyan-500"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(order.id)}
-                        className="h-7 w-7 p-0 text-slate-500 hover:text-rose-500"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      <Card className="border border-slate-200 dark:border-slate-800 shadow-sm p-4">
+        <DataTable
+          columns={columns}
+          data={filteredOrders}
+          loading={loading}
+          emptyText="Nenhuma ordem de serviço cadastrada ou encontrada."
+          pageSize={10}
+          pagination={true}
+        />
       </Card>
 
       {/* MODAL: ORDEM DE SERVIÇO */}
       <Modal
         open={isModalOpen}
         onOpenChange={setIsModalOpen}
-        title={editingId ? 'Editar Ordem de Serviço' : 'Nova Ordem de Serviço de Frota'}
+        size="2xl"
+        title={editingId ? 'Editar Ordem de Serviço' : 'Cadastrar Nova Ordem de Serviço'}
       >
         <form onSubmit={handleSave} className="space-y-4">
           {formError && (
@@ -354,7 +371,7 @@ export const MaintenanceOrderPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Veículo da Frota *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Veículo Escolar *</label>
               <Select
                 value={String(formData.vehicle_id)}
                 onChange={(val: any) => setFormData({ ...formData, vehicle_id: Number(val) })}
@@ -366,16 +383,16 @@ export const MaintenanceOrderPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Tipo de Manutenção *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Tipo de Serviço *</label>
               <Select
                 value={formData.service_type}
                 onChange={(val: any) => setFormData({ ...formData, service_type: val as any })}
                 options={[
-                  { value: 'preventive', label: 'Preventiva (Revisão periódica)' },
+                  { value: 'preventive', label: 'Preventiva (Revisão Periódica)' },
                   { value: 'corrective', label: 'Corretiva (Reparo / Quebra)' },
-                  { value: 'oil_change', label: 'Troca de Óleo / Filtros' },
-                  { value: 'tires', label: 'Pneus / Alinhamento / Balanceamento' },
-                  { value: 'inspection', label: 'Inspeção Detran / Tacógrafo' },
+                  { value: 'oil_change', label: 'Troca de Óleo e Filtros' },
+                  { value: 'tires', label: 'Pneus e Alinhamento' },
+                  { value: 'inspection', label: 'Vistoria / Inspeção Técnica' },
                 ]}
                 className="mt-1"
               />
@@ -384,7 +401,7 @@ export const MaintenanceOrderPage: React.FC = () => {
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Odômetro Atual (km) *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Odômetro no Momento (km) *</label>
               <Input
                 type="number"
                 value={formData.odometer_km}
@@ -394,7 +411,7 @@ export const MaintenanceOrderPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Data do Serviço *</label>
+              <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Data de Execução *</label>
               <Input
                 type="date"
                 value={formData.service_date}
@@ -409,19 +426,19 @@ export const MaintenanceOrderPage: React.FC = () => {
                 value={formData.amount_reais}
                 onChange={(e) => setFormData({ ...formData, amount_reais: e.target.value })}
                 required
-                className="mt-1 text-xs font-mono font-bold text-emerald-600 dark:text-emerald-400"
+                className="mt-1 text-xs font-mono"
                 placeholder="0,00"
               />
             </div>
           </div>
 
           <div>
-            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Observações / Peças / Oficina</label>
+            <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Descrição dos Serviços / Peças e Oficina</label>
             <Input
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="mt-1 text-xs"
-              placeholder="Descreva as peças substituídas ou nome da oficina contratada"
+              placeholder="Ex: Troca de pastilhas de freio, disco e sangria na Oficina Central"
             />
           </div>
 
@@ -436,7 +453,7 @@ export const MaintenanceOrderPage: React.FC = () => {
               className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5"
             >
               <Save className="w-4 h-4" />
-              {saving ? 'Salvando...' : 'Salvar Ordem'}
+              {saving ? 'Salvando...' : 'Salvar Ordem de Serviço'}
             </Button>
           </div>
         </form>
