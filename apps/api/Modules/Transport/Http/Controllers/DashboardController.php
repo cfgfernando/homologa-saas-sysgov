@@ -17,44 +17,37 @@ final class DashboardController extends Controller
     public function index(): JsonResponse
     {
         $today = Carbon::today();
-        $sixMonthsAgo = Carbon::today()->subMonths(6);
 
-        // Vehicles
+        // Vehicles (Frota Escolar)
         $totalVehicles = TransportVehicle::count();
         $activeVehicles = TransportVehicle::where('status', 'active')->count();
         $pendingInspectionVehicles = TransportVehicle::where('status', 'active')
-            ->where(function ($q) use ($sixMonthsAgo, $today) {
-                $q->whereNull('last_inspection_date')
-                    ->orWhere('last_inspection_date', '<', $sixMonthsAgo)
-                    ->orWhere('next_inspection_date', '<', $today);
-            })->count();
-
-        // Drivers
-        $totalDrivers = TransportDriver::count();
-        $activeDrivers = TransportDriver::where('status', 'active')->count();
-        $expiredCnhDrivers = TransportDriver::where('status', 'active')
-            ->where('cnh_expiration_date', '<', $today)
-            ->count();
-        $expiredCourseDrivers = TransportDriver::where('status', 'active')
             ->where(function ($q) use ($today) {
-                $q->where('has_school_transport_course', false)
-                    ->orWhere(function ($q2) use ($today) {
-                        $q2->whereNotNull('course_expiration_date')
-                            ->where('course_expiration_date', '<', $today);
-                    });
+                $q->whereNull('detran_inspection_due_date')
+                    ->orWhere('detran_inspection_due_date', '<', $today);
             })->count();
 
-        // Routes
+        // Drivers (Condutores CTB Art. 138)
+        $totalDrivers = TransportDriver::count();
+        $activeDrivers = TransportDriver::where('is_active', true)->count();
+        $expiredCnhDrivers = TransportDriver::where('is_active', true)
+            ->where('cnh_due_date', '<', $today)
+            ->count();
+        $expiredCourseDrivers = TransportDriver::where('is_active', true)
+            ->where('school_transport_course_due_date', '<', $today)
+            ->count();
+
+        // Routes (Rotas e Itinerários)
         $totalRoutes = TransportRoute::count();
-        $activeRoutes = TransportRoute::where('status', 'active')->count();
+        $activeRoutes = TransportRoute::where('is_active', true)->count();
         $ruralRoutes = TransportRoute::where('route_type', 'rural')->count();
         $urbanRoutes = TransportRoute::where('route_type', 'urban')->count();
         $mixedRoutes = TransportRoute::where('route_type', 'mixed')->count();
 
-        // Students & Allocations
+        // Students & Allocations (PNATE FNDE)
         $totalAllocations = TransportStudentAllocation::where('status', 'active')->count();
         $pnateEligibleCount = TransportStudentAllocation::where('status', 'active')
-            ->where('is_pnate_eligible', true)
+            ->where('census_eligible_pnate', true)
             ->count();
 
         return response()->json([
