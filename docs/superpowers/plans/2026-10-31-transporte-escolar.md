@@ -120,17 +120,17 @@
 **Interfaces:**
 - Produces: Métodos de validação de CTB (`validateDriverForRoute`, `validateVehicleInspection`) e cálculo de elegibilidade PNATE.
 
-- [ ] **Passo 1: Escrever teste unitário para `DriverComplianceService`**
+- [x] **Passo 1: Escrever teste unitário para `DriverComplianceService`**
   Testar rejeição de CNH categoria "B", CNH vencida e curso vencido.
-- [ ] **Passo 2: Implementar `DriverComplianceService`**
-- [ ] **Passo 3: Implementar `VehicleFleetService` com trava de lotação máxima**
-- [ ] **Passo 4: Implementar `PnateEligibilityService`**
+- [x] **Passo 2: Implementar `DriverComplianceService`**
+- [x] **Passo 3: Implementar `VehicleFleetService` com trava de lotação máxima**
+- [x] **Passo 4: Implementar `PnateEligibilityService`**
   Calcular distância geodésica entre residência do aluno e escola (regra dos 2 km para zona rural).
-- [ ] **Passo 5: Executar testes da suíte de compliance**
+- [x] **Passo 5: Executar testes da suíte de compliance**
   ```bash
   php artisan test Modules/Transport/Tests/Unit/ComplianceServiceTest.php
   ```
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
   ```bash
   git add apps/api/Modules/Transport/Services apps/api/Modules/Transport/Tests
   git commit -m "feat(transport): implement compliance and eligibility domain services"
@@ -151,11 +151,11 @@
 - Consumes: Models, Services e `AuditLogger`.
 - Produces: Endpoints HTTP protegidos por `auth:sanctum` e `resolve.tenant`.
 
-- [ ] **Passo 1: Criar rotas em `Routes/api.php` com prefixo `api/transport`**
-- [ ] **Passo 2: Implementar `VehicleController` com validação de vistoria e auditoria**
-- [ ] **Passo 3: Implementar `RouteController` com itinerário e georreferenciamento**
-- [ ] **Passo 4: Implementar `AllocationController` com alocação e elegibilidade automática**
-- [ ] **Passo 5: Commit**
+- [x] **Passo 1: Criar rotas em `Routes/api.php` com prefixo `api/transport`**
+- [x] **Passo 2: Implementar `VehicleController` com validação de vistoria e auditoria**
+- [x] **Passo 3: Implementar `RouteController` com itinerário e georreferenciamento**
+- [x] **Passo 4: Implementar `AllocationController` com alocação e elegibilidade automática**
+- [x] **Passo 5: Commit**
   ```bash
   git add apps/api/Modules/Transport/Http apps/api/Modules/Transport/Routes apps/api/Modules/Transport/Policies
   git commit -m "feat(transport): create REST controllers with AuditLogger integration"
@@ -172,13 +172,13 @@
 - Consumes: Todos os endpoints da Task 5.
 - Produces: Garantia de que dados do Município A nunca são acessados pelo Município B.
 
-- [ ] **Passo 1: Escrever teste com dois tenants distintos (Tenant 1 e Tenant 2)**
-- [ ] **Passo 2: Criar veículos e rotas no Tenant 1 e tentar ler com credenciais do Tenant 2**
-- [ ] **Passo 3: Executar a suíte de testes de isolamento**
+- [x] **Passo 1: Escrever teste com dois tenants distintos (Tenant 1 e Tenant 2)**
+- [x] **Passo 2: Criar veículos e rotas no Tenant 1 e tentar ler com credenciais do Tenant 2**
+- [x] **Passo 3: Executar a suíte de testes de isolamento**
   ```bash
   php artisan test Modules/Transport/Tests/Feature/TenantIsolationTest.php
   ```
-- [ ] **Passo 4: Commit**
+- [x] **Passo 4: Commit**
   ```bash
   git add apps/api/Modules/Transport/Tests/Feature/TenantIsolationTest.php
   git commit -m "test(transport): verify strict multi-tenant isolation"
@@ -199,16 +199,17 @@
 - Consumes: Primitivos do pacote `@sysgov/ui`, endpoints `/api/transport/*`.
 - Produces: Interface visual responsiva de gestão do transporte escolar.
 
-- [ ] **Passo 1: Criar o `TransportMapViewer` com suporte a Leaflet e camadas GeoJSON**
-- [ ] **Passo 2: Construir o `TransportDashboardPage` com KPIs e alertas de vistoria**
-- [ ] **Passo 3: Construir `RouteManagementPage` e `VehicleFleetPage` com dados técnicos em `JetBrains Mono`**
-- [ ] **Passo 4: Registrar as rotas no App Shell do `apps/web-client`**
-- [ ] **Passo 5: Validar a compilação do TypeScript e estilos**
+- [x] **Passo 1: Criar o `TransportMapViewer` com suporte a Leaflet e camadas GeoJSON**
+- [x] **Passo 2: Construir o `TransportDashboardPage` com KPIs e alertas de vistoria**
+- [x] **Passo 3: Construir `RouteManagementPage` e `VehicleFleetPage` com dados técnicos em `JetBrains Mono`**
+- [x] **Passo 4: Registrar as rotas no App Shell do `apps/web-client`**
+- [x] **Passo 5: Validar a compilação do TypeScript e estilos**
   ```bash
   pnpm --filter @sysgov/web-client build
   ```
-- [ ] **Passo 6: Commit**
+- [x] **Passo 6: Commit**
   ```bash
   git add apps/web-client/src/modules/transport apps/web-client/src/routes
   git commit -m "feat(transport): create frontend dashboard and map management screens"
   ```
+
