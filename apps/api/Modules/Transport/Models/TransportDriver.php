@@ -16,7 +16,7 @@ final class TransportDriver extends Model
 
     protected $table = 'transport_drivers';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'cnh_due_date' => 'date',

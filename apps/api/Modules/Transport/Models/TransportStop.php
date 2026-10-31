@@ -14,7 +14,7 @@ final class TransportStop extends Model
 
     protected $table = 'transport_stops';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'latitude' => 'float',

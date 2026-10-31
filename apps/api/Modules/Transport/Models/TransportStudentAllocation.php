@@ -15,7 +15,7 @@ final class TransportStudentAllocation extends Model
 
     protected $table = 'transport_student_allocations';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'census_eligible_pnate' => 'boolean',

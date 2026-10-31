@@ -15,7 +15,7 @@ final class TransportRoute extends Model
 
     protected $table = 'transport_routes';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'distance_paved_km' => 'float',

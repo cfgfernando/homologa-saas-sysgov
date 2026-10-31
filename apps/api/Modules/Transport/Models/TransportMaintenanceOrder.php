@@ -14,7 +14,7 @@ final class TransportMaintenanceOrder extends Model
 
     protected $table = 'transport_maintenance_orders';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'amount_cents' => 'integer',

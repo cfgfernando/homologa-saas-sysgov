@@ -16,7 +16,7 @@ final class TransportVehicle extends Model
 
     protected $table = 'transport_vehicles';
 
-    protected $guarded = ['id', 'tenant_id'];
+    protected $guarded = ['id'];
 
     protected $casts = [
         'year_manufacture' => 'integer',
