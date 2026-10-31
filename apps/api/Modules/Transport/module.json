@@ -1,0 +1,46 @@
+{
+    "name": "Transport",
+    "alias": "transport",
+    "description": "Gestão de Transporte Escolar Público (SYS-Transporte): frota, condutores, itinerários, pontos de parada rurais, alocação de alunos e conformidade CTB e PNATE/FNDE.",
+    "priority": 45,
+    "providers": [
+        "Modules\\Transport\\Providers\\TransportServiceProvider",
+        "Modules\\Transport\\Providers\\RouteServiceProvider"
+    ],
+    "requires": [
+        "Admin",
+        "Pessoas"
+    ],
+    "menu": {
+        "group": "EDUCAÇÃO E TRANSPORTE",
+        "label": "Transporte Escolar",
+        "icon": "Bus",
+        "order": 55,
+        "permission": "transport.view",
+        "children": [
+            { "label": "Painel Geral",        "route": "transport.dashboard",   "permission": "transport.view",          "icon": "LayoutDashboard" },
+            { "label": "Linhas e Rotas",      "route": "transport.routes",      "permission": "transport.routes.view",   "icon": "Route" },
+            { "label": "Mapa da Rede",        "route": "transport.map",         "permission": "transport.routes.view",   "icon": "MapPin" },
+            { "label": "Frota e Veículos",    "route": "transport.vehicles",    "permission": "transport.vehicles.view", "icon": "BusFront" },
+            { "label": "Condutores",          "route": "transport.drivers",     "permission": "transport.drivers.view",  "icon": "UserCheck" },
+            { "label": "Alunos Atendidos",    "route": "transport.students",    "permission": "transport.students.view", "icon": "GraduationCap" },
+            { "label": "Manutenções e Custos","route": "transport.maintenance", "permission": "transport.costs.view",    "icon": "Wrench" },
+            { "label": "Censo / PNATE",       "route": "transport.census",      "permission": "transport.census.view",   "icon": "FileSpreadsheet" }
+        ]
+    },
+    "permissions": {
+        "transport.view": "Visualizar Transporte Escolar",
+        "transport.routes.view": "Visualizar rotas e itinerários",
+        "transport.routes.manage": "Criar e editar rotas e pontos de parada",
+        "transport.vehicles.view": "Visualizar frota de veículos",
+        "transport.vehicles.manage": "Gerenciar veículos e vistorias DETRAN",
+        "transport.drivers.view": "Visualizar condutores e monitores",
+        "transport.drivers.manage": "Gerenciar condutores, CNH e toxicológico",
+        "transport.students.view": "Visualizar alunos alocados",
+        "transport.students.manage": "Alocar alunos e calcular elegibilidade PNATE",
+        "transport.costs.view": "Visualizar ordens de serviço e custos",
+        "transport.costs.manage": "Lançar e gerenciar manutenções de veículos",
+        "transport.census.view": "Consultar dados do Educacenso e PNATE",
+        "transport.census.export": "Exportar arquivo do Censo Escolar (Registro 60)"
+    }
+}
