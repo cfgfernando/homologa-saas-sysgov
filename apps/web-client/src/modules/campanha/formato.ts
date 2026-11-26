@@ -26,7 +26,7 @@ const RELACAO_COMO_SITUACAO: Record<RelacaoPrefeito, Situacao> = { aliado: 'cons
 
 export const ROTULO_CAMADA: Record<Camada, string> = { situacao: 'Situação Política', apoio_prefeito: 'Apoio de Prefeito', meta_votos: 'Meta de Votos', mapa_calor: 'Mapa de calor (eleitores)' };
 
-/** Gradiente do mapa de calor (leaflet.heat) e a legenda correspondente. */
+/** Gradiente do mapa de calor (camada heatmap do MapLibre) e a legenda correspondente. */
 export const GRADIENTE_CALOR: Record<number, string> = { 0.3: '#3b82f6', 0.55: '#22c55e', 0.75: '#facc15', 1: '#ef4444' };
 const COR_FUNDO_CALOR = '#e2e8f0';
 

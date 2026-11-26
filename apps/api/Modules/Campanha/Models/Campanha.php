@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $nome
  * @property int $ano
  * @property string $cargo
+ * @property int|null $codigo_ibge Município de atuação (só Prefeito/Vereador)
  * @property string $uf
  * @property int $meta_votos_global
  * @property string $status ativa | encerrada
@@ -35,6 +36,11 @@ final class Campanha extends Model
 {
     use SoftDeletes;
     use TenantAware;
+
+    public const CARGOS = ['Presidente', 'Governador', 'Senador', 'Deputado Federal', 'Deputado Estadual', 'Prefeito', 'Vereador'];
+
+    /** Cargos disputados num município: o mapa mostra só o município, dividido por bairros. */
+    public const CARGOS_MUNICIPAIS = ['Prefeito', 'Vereador'];
 
     public const SITUACOES = ['sem_atuacao', 'em_andamento', 'consolidado', 'prioritario', 'risco'];
 
@@ -60,7 +66,7 @@ final class Campanha extends Model
     protected $table = 'campanha_campanhas';
 
     protected $fillable = [
-        'tenant_id', 'nome', 'ano', 'cargo', 'uf', 'meta_votos_global', 'status', 'encerrada_em', 'cores_situacao', 'faixas_meta',
+        'tenant_id', 'nome', 'ano', 'cargo', 'uf', 'codigo_ibge', 'meta_votos_global', 'status', 'encerrada_em', 'cores_situacao', 'faixas_meta',
         'lgpd_termo', 'lgpd_termo_versao', 'lgpd_encarregado_nome', 'lgpd_encarregado_contato', 'lgpd_retencao_dias',
     ];
 
@@ -69,6 +75,7 @@ final class Campanha extends Model
     protected $casts = [
         'tenant_id' => 'integer',
         'ano' => 'integer',
+        'codigo_ibge' => 'integer',
         'meta_votos_global' => 'integer',
         'cores_situacao' => 'array',
         'faixas_meta' => 'array',
@@ -76,6 +83,11 @@ final class Campanha extends Model
         'lgpd_retencao_dias' => 'integer',
         'encerrada_em' => 'datetime',
     ];
+
+    public function municipal(): bool
+    {
+        return in_array($this->cargo, self::CARGOS_MUNICIPAIS, true);
+    }
 
     public function encerrada(): bool
     {

@@ -53,7 +53,10 @@ final class ImportadorIbge
         return $atualizados;
     }
 
-    /** Malha dos municípios da UF (GeoJSON, propriedade `codarea` = código IBGE). */
+    /**
+     * Malha dos municípios da UF (GeoJSON, propriedade `codarea` = código IBGE). Usa a API v4: a v3 parou na
+     * malha de 2022 e não traz municípios instalados depois (ex.: Boa Esperança do Norte/MT, 5101837).
+     */
     public function malha(string $uf): int
     {
         $qualidade = (string) config('campanha.qualidade_malha', 'intermediaria');
@@ -66,7 +69,7 @@ final class ImportadorIbge
         RefMalha::query()->updateOrCreate(['uf' => strtoupper($uf)], [
             'geojson' => json_encode($geo, JSON_UNESCAPED_UNICODE),
             'qualidade' => $qualidade,
-            'fonte' => 'IBGE — API de malhas v3',
+            'fonte' => 'IBGE — API de malhas v4',
         ]);
 
         return count($feicoes);

@@ -142,7 +142,8 @@ final class CampanhaController extends Controller
         return [
             'nome' => [$obrigatorio, 'string', 'max:200'],
             'ano' => [$obrigatorio, 'integer', 'between:2000,2100'],
-            'cargo' => [$obrigatorio, 'string', 'max:100'],
+            'cargo' => [$obrigatorio, 'string', Rule::in(Campanha::CARGOS)],
+            'codigo_ibge' => ['sometimes', 'nullable', 'integer', 'between:1100000,5399999'],
             'uf' => [$obrigatorio, 'string', Rule::in(CampanhaService::UFS)],
             'meta_votos_global' => ['sometimes', 'integer', 'min:0'],
             'status' => ['sometimes', Rule::in(['ativa', 'encerrada'])],

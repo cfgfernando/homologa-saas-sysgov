@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Modules\Campanha\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Http;
+use Modules\Campanha\Jobs\ImportarMalhaJob;
+use Modules\Campanha\Jobs\ImportarReferenciaJob;
 use Modules\Campanha\Models\Referencia\RefImportacao;
 use Modules\Campanha\Models\Referencia\RefMalha;
 use Modules\Campanha\Models\Referencia\RefMandatario;
@@ -94,7 +97,7 @@ final class ReferenciaPublicaTest extends TestCase
                 ['V' => '1829225', 'D1C' => '4106902', 'D3N' => '2026'],
                 ['V' => '...', 'D1C' => '4116208', 'D3N' => '2026'],
             ]),
-            'servicodados.ibge.gov.br/api/v3/malhas/*' => Http::response(['type' => 'FeatureCollection', 'features' => [
+            'servicodados.ibge.gov.br/api/v4/malhas/*' => Http::response(['type' => 'FeatureCollection', 'features' => [
                 ['type' => 'Feature', 'properties' => ['codarea' => '4106902'], 'geometry' => ['type' => 'Polygon', 'coordinates' => [[[-49.3, -25.4], [-49.2, -25.4], [-49.2, -25.5], [-49.3, -25.4]]]]],
             ]]),
             "cdn.tse.jus.br/*/eleitorado_local_votacao_{$anoEleitoradoDisponivel}.zip" => Http::response($eleitorado),
@@ -158,6 +161,7 @@ final class ReferenciaPublicaTest extends TestCase
     public function test_leitura_da_base_publica_pelo_tenant_e_malha_com_etag(): void
     {
         $this->fakeFontes();
+        Bus::fake([ImportarReferenciaJob::class, ImportarMalhaJob::class]);
         app(ImportacaoReferenciaService::class)->importar('PR', 2024, self::ANO);
         $tenant = $this->criarTenant();
         $consulta = $this->usuario($tenant, ['campanha_consulta']);
@@ -177,5 +181,48 @@ final class ReferenciaPublicaTest extends TestCase
         $this->como($this->usuario($tenant), $tenant)->postJson('/api/campanha/referencia/PR/municipios', [])->assertStatus(405);
         $this->como($this->usuario($tenant), $tenant)->putJson('/api/campanha/referencia/PR/malha', [])->assertStatus(405);
         $this->assertSame(3, RefMunicipio::query()->count());
+    }
+
+    public function test_mapa_de_uf_sem_malha_agenda_importacao_uma_vez(): void
+    {
+        Bus::fake([ImportarReferenciaJob::class]);
+        $tenant = $this->criarTenant();
+        $consulta = $this->usuario($tenant, ['campanha_consulta']);
+
+        $this->como($consulta, $tenant)->getJson('/api/campanha/referencia/MT/malha')->assertNotFound();
+        Bus::assertDispatchedAfterResponse(ImportarReferenciaJob::class, fn (ImportarReferenciaJob $j) => $j->uf === 'MT');
+
+        // Com importação em andamento, não agenda outra.
+        RefImportacao::query()->create(['uf' => 'MT', 'situacao' => 'em_andamento', 'iniciado_em' => now()]);
+        $this->como($consulta, $tenant)->getJson('/api/campanha/referencia/MT/malha')->assertNotFound();
+        Bus::assertDispatchedAfterResponseTimes(ImportarReferenciaJob::class, 1);
+    }
+
+    public function test_uf_com_malha_nao_agenda_importacao(): void
+    {
+        Bus::fake([ImportarReferenciaJob::class]);
+        RefMalha::query()->create(['uf' => 'MT', 'geojson' => '{"type":"FeatureCollection","features":[]}', 'qualidade' => 'teste', 'fonte' => 'teste']);
+
+        $this->assertFalse(app(ImportacaoReferenciaService::class)->solicitarSeFaltar('mt'));
+        Bus::assertNothingDispatched();
+    }
+
+    public function test_malha_com_menos_municipios_que_o_cadastro_e_buscada_de_novo_uma_vez(): void
+    {
+        $this->fakeFontes();
+        Bus::fake([ImportarReferenciaJob::class, ImportarMalhaJob::class]);
+        app(ImportacaoReferenciaService::class)->importar('PR', 2024, self::ANO); // malha fake: 1 de 3 municípios
+        $tenant = $this->criarTenant();
+        $consulta = $this->usuario($tenant, ['campanha_consulta']);
+
+        // Serve a malha atual e agenda a nova busca, sem repetir a cada requisição.
+        $this->como($consulta, $tenant)->get('/api/campanha/referencia/PR/malha')->assertOk();
+        $this->como($consulta, $tenant)->get('/api/campanha/referencia/PR/malha')->assertOk();
+        Bus::assertDispatchedAfterResponseTimes(ImportarMalhaJob::class, 1);
+
+        // Malha completa: nada a fazer.
+        $completa = ['type' => 'FeatureCollection', 'features' => array_map(fn (int $c) => ['type' => 'Feature', 'properties' => ['codarea' => (string) $c], 'geometry' => null], [4100103, 4106902, 4116208])];
+        RefMalha::query()->whereKey('PR')->update(['geojson' => json_encode($completa)]);
+        $this->assertFalse(app(ImportacaoReferenciaService::class)->atualizarMalhaSeIncompleta(RefMalha::query()->findOrFail('PR')));
     }
 }

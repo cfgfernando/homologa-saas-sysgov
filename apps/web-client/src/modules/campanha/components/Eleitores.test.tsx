@@ -16,7 +16,7 @@ import type { PropsAba } from '../ModuloCampanhaMain';
 import { EleitoresCampanha } from './EleitoresCampanha';
 import { CadastroApoioPage } from '../pages/CadastroApoioPage';
 
-const campanha: Campanha = { id: 1, nome: 'A', ano: 2026, cargo: 'Deputado Estadual', uf: 'PR', meta_votos_global: 0, status: 'ativa', candidato: null };
+const campanha: Campanha = { id: 1, nome: 'A', ano: 2026, cargo: 'Deputado Estadual', uf: 'PR', codigo_ibge: null, meta_votos_global: 0, status: 'ativa', candidato: null };
 const props = (eleitoresVer: boolean): PropsAba => ({
   campanha: { ...campanha, cores: {} as PropsAba['campanha']['cores'], faixas: { faixas: [], cor_acima: '#000000' } },
   recarregarCampanha: vi.fn(), avisar: vi.fn(), abrirMunicipio: vi.fn(), versao: 0, alterou: vi.fn(),

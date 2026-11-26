@@ -15,7 +15,7 @@ import { CoordenadoresCampanha } from './CoordenadoresCampanha';
 import type { PropsAba } from '../ModuloCampanhaMain';
 
 const campanha = (id: number, nome: string, urna: string | null = null): Campanha => ({
-  id, nome, ano: 2026, cargo: 'Deputado Estadual', uf: 'PR', meta_votos_global: 0, status: 'ativa',
+  id, nome, ano: 2026, cargo: 'Deputado Estadual', uf: 'PR', codigo_ibge: null, meta_votos_global: 0, status: 'ativa',
   candidato: urna ? { nome_urna: urna } as Campanha['candidato'] : null,
 });
 

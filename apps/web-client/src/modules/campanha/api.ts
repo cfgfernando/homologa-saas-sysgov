@@ -45,6 +45,8 @@ export interface Campanha {
   ano: number;
   cargo: string;
   uf: string;
+  /** Município de atuação: só Prefeito/Vereador (o mapa vira de bairros). */
+  codigo_ibge: number | null;
   meta_votos_global: number;
   status: 'ativa' | 'encerrada';
   candidato: Candidato | null;
@@ -67,7 +69,10 @@ export interface CampanhaAtual extends Campanha {
   faixas: Faixas;
 }
 
-export type DadosCampanha = Pick<Campanha, 'nome' | 'ano' | 'cargo' | 'uf'> & Partial<Pick<Campanha, 'meta_votos_global' | 'status'>>;
+export type DadosCampanha = Pick<Campanha, 'nome' | 'ano' | 'cargo' | 'uf'> & Partial<Pick<Campanha, 'meta_votos_global' | 'status' | 'codigo_ibge'>>;
+
+/** Cargos disputados num município: o mapa mostra só o município, por bairros. */
+export const CARGOS_MUNICIPAIS = ['Prefeito', 'Vereador'];
 export type DadosLgpd = Partial<Pick<LgpdCampanha, 'lgpd_termo' | 'lgpd_encarregado_nome' | 'lgpd_encarregado_contato' | 'lgpd_retencao_dias'>>;
 export type DadosCandidato = Partial<Omit<Candidato, 'id' | 'campanha_id' | 'pessoa_id' | 'cpf_mascarado'>> & { cpf?: string | null };
 
@@ -420,6 +425,9 @@ export const campanhaApi = {
   usuariosDisponiveis: async (id: number) => (await get<{ usuarios: { id: number; nome: string; email: string }[] }>(`/campanhas/${id}/usuarios`)).usuarios,
   definirMembros: async (id: number, userIds: number[]) => (await put<{ membros: Membro[] }>(`/campanhas/${id}/membros`, { user_ids: userIds })).membros,
   malha: (uf: string) => get<GeoJSON.FeatureCollection>(`/referencia/${uf}/malha`),
+  /** Bairros do município (IBGE Censo 2022 ou OpenStreetMap); 404 enquanto a importação roda. */
+  bairros: (ibge: number) => get<GeoJSON.FeatureCollection>(`/referencia/municipios/${ibge}/bairros`),
+  municipiosDaUf: async (uf: string) => (await get<{ municipios: { codigo_ibge: number; nome: string }[] }>(`/referencia/${uf}/municipios`)).municipios,
 
   // Campanha de trabalho (X-Campanha-ID)
   atual: () => get<CampanhaAtual>('/atual'),
