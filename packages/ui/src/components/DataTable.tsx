@@ -59,7 +59,34 @@ declare module '@tanstack/react-table' {
     sortValue?: (row: TData) => string | number | boolean | null | undefined;
     /** Deixa a coluna de fora dos arquivos exportados (a exportação automática a incluiria). */
     exportIgnore?: boolean;
+    /** Modo cartão (`mobileCards`): coluna mostrada como título do cartão, sem rótulo. */
+    mobilePrimary?: boolean;
+    /** Modo cartão (`mobileCards`): coluna omitida no cartão (continua na tabela e na exportação). */
+    mobileHidden?: boolean;
   }
+}
+
+/** Largura abaixo da qual o `DataTable` com `mobileCards` vira lista de cartões (breakpoint `md` do Tailwind). */
+const CONSULTA_MOBILE = '(max-width: 767px)';
+
+/** `true` em tela estreita; sem `matchMedia` (testes/SSR) assume desktop e mantém a tabela. */
+export function useTelaEstreita(query: string = CONSULTA_MOBILE): boolean {
+  const ler = () => (typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia(query).matches : false);
+  const [estreita, setEstreita] = React.useState(ler);
+  React.useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia(query);
+    const aoMudar = () => setEstreita(mql.matches);
+    aoMudar();
+    mql.addEventListener?.('change', aoMudar);
+    return () => mql.removeEventListener?.('change', aoMudar);
+  }, [query]);
+  return estreita;
+}
+
+/** Coluna de ações: id `actions` ou `acoes`. */
+function ehColunaDeAcoes<TData>(col: Column<TData, unknown>): boolean {
+  return col.id === 'actions' || col.id === 'acoes';
 }
 
 /**
@@ -143,6 +170,13 @@ export interface DataTableProps<TData, TValue> {
     state: SortingState;
     onChange: (state: SortingState) => void;
   };
+  /**
+   * Em tela estreita (< 768px) troca a tabela por uma lista de cartões tocáveis:
+   * `meta.mobilePrimary` vira o título, a coluna de ações (`acoes`/`actions`) fica
+   * no canto, as demais aparecem como "rótulo: valor". Paginação, busca e
+   * exportação continuam iguais. Desligado por padrão.
+   */
+  mobileCards?: boolean;
 }
 
 /** Coluna com valor de dado (não é de ações nem de célula puramente visual) e cabeçalho em texto. */
@@ -331,7 +365,10 @@ export function DataTable<TData, TValue>({
   exportTitle,
   paginationState,
   sorting: remoteSorting,
+  mobileCards = false,
 }: DataTableProps<TData, TValue>) {
+  const telaEstreita = useTelaEstreita();
+  const comoCartoes = mobileCards && telaEstreita;
   const emptyText = emptyTextProp ?? emptyMessage ?? 'Nenhum registro encontrado.';
   const [localSorting, setLocalSorting] = React.useState<SortingState>([]);
   const sorting = remoteSorting ? remoteSorting.state : localSorting;
@@ -418,6 +455,56 @@ export function DataTable<TData, TValue>({
         </div>
       )}
 
+      {comoCartoes ? (
+        <ul className="space-y-2" aria-label="Registros">
+          {loading ? (
+            <li className="py-16 text-center">
+              <span className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary" />
+            </li>
+          ) : table.getRowModel().rows.length === 0 ? (
+            <li className="rounded-xl border border-border py-12 text-center text-sm text-muted-foreground">{emptyText}</li>
+          ) : (
+            table.getRowModel().rows.map((row) => {
+              const celulas = row.getVisibleCells().filter((c) => !c.column.columnDef.meta?.exportOnly && !c.column.columnDef.meta?.mobileHidden);
+              const acoes = celulas.filter((c) => ehColunaDeAcoes(c.column));
+              const titulo = celulas.filter((c) => c.column.columnDef.meta?.mobilePrimary);
+              const campos = celulas.filter((c) => !ehColunaDeAcoes(c.column) && !c.column.columnDef.meta?.mobilePrimary);
+              return (
+                <li
+                  key={row.id}
+                  onClick={() => onRowClick?.(row.original)}
+                  className={cn('rounded-xl border border-border bg-card p-3 text-sm shadow-sm', onRowClick && 'cursor-pointer active:bg-accent/40')}
+                >
+                  {(titulo.length > 0 || acoes.length > 0) && (
+                    <div className="mb-2 flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1 font-medium text-foreground">
+                        {titulo.map((c) => <div key={c.id}>{flexRender(c.column.columnDef.cell, c.getContext())}</div>)}
+                      </div>
+                      {acoes.map((c) => (
+                        <div key={c.id} className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {flexRender(c.column.columnDef.cell, c.getContext())}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5">
+                    {campos.map((c) => {
+                      const h = c.column.columnDef.header;
+                      const rotulo = c.column.columnDef.meta?.exportHeader ?? (typeof h === 'string' ? h : c.column.id);
+                      return (
+                        <React.Fragment key={c.id}>
+                          <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{rotulo}</dt>
+                          <dd className="min-w-0 text-right text-foreground">{flexRender(c.column.columnDef.cell, c.getContext())}</dd>
+                        </React.Fragment>
+                      );
+                    })}
+                  </dl>
+                </li>
+              );
+            })
+          )}
+        </ul>
+      ) : (
       <div className="overflow-x-auto rounded-xl border border-border">
         <table
           className={cn('w-full text-sm', useFixedLayout && 'table-fixed')}
@@ -558,6 +645,7 @@ export function DataTable<TData, TValue>({
           </tbody>
         </table>
       </div>
+      )}
 
       {pagination && !loading && data.length > 0 && (() => {
         const pageIndex = table.getState().pagination.pageIndex;
@@ -597,7 +685,7 @@ export function DataTable<TData, TValue>({
               </span>
             </div>
 
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center justify-center gap-1.5">
               <button
                 onClick={() => table.setPageIndex(0)}
                 disabled={!table.getCanPreviousPage()}

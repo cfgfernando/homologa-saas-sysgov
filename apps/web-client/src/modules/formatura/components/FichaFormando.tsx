@@ -143,7 +143,7 @@ export const FichaFormando: React.FC<{ formando: Formando; aberto: boolean; prop
                     <TableCell className="text-right font-mono tabular-nums">{formatarCentavos(p.valor_centavos)}</TableCell>
                     <TableCell className="text-right">
                       {permissoes.pagar && (
-                        <Button size="xs" variant="ghost" aria-label="Estornar pagamento" onClick={() => setEstornar(p)}><Trash2 /></Button>
+                        <Button size="sm" variant="ghost" aria-label="Estornar pagamento" onClick={() => setEstornar(p)}><Trash2 /></Button>
                       )}
                     </TableCell>
                   </TableRow>

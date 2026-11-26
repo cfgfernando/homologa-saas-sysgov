@@ -100,7 +100,7 @@ export * from './components/Timeline';
 // ============================================================
 // Padrões compartilhados (portal e admin): grade, campos, cabeçalho de página, estados de tela, confirmação e validação em modal
 // ============================================================
-export { DataTable } from './components/DataTable';
+export { DataTable, useTelaEstreita } from './components/DataTable';
 export type { DataTableProps } from './components/DataTable';
 export { Field } from './components/Field';
 export type { FieldProps } from './components/Field';

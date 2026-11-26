@@ -64,7 +64,7 @@ export const TurmasConsulta: React.FC<PropsAba> = ({ dados }) => {
         </div>
       ),
     },
-    { id: 'turma', header: 'Turma', accessorKey: 'nome', cell: ({ row }) => <span className="font-medium">{row.original.nome}</span>, meta: { exportHeader: 'Turma', exportValue: (t) => t.nome } },
+    { id: 'turma', header: 'Turma', accessorKey: 'nome', cell: ({ row }) => <span className="font-medium">{row.original.nome}</span>, meta: { exportHeader: 'Turma', exportValue: (t) => t.nome, mobilePrimary: true } },
     { id: 'turno', header: 'Turno', accessorKey: 'turno', meta: { exportHeader: 'Turno', exportValue: (t) => t.turno } },
     {
       id: 'alunos',
@@ -95,11 +95,12 @@ export const TurmasConsulta: React.FC<PropsAba> = ({ dados }) => {
   return (
     <Card>
       <CardContent className="space-y-3 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted-foreground">Turmas e alunos são mantidos no Cadastro Escolar.</p>
           <Button variant="outline" leftIcon={<ExternalLink className="h-4 w-4" />} onClick={() => navigate('/escola')}>Abrir Cadastro Escolar</Button>
         </div>
         <DataTable
+          mobileCards
           columns={colunas}
           data={linhas}
           emptyText="Nenhuma turma formanda."
@@ -112,6 +113,7 @@ export const TurmasConsulta: React.FC<PropsAba> = ({ dados }) => {
             <CardHeader><CardTitle>Participantes — {turmaAberta.nome}</CardTitle></CardHeader>
             <CardContent className="p-0">
               <DataTable
+                mobileCards
                 columns={colunasParticipantes}
                 data={participantes}
                 emptyText="Nenhum aluno participando nesta turma."
