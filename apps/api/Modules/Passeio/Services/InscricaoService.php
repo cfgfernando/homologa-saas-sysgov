@@ -107,16 +107,17 @@ final class InscricaoService
         });
     }
 
-    /** @param array{vai?: bool, autorizacao_entregue?: bool, pago?: bool, observacao?: string|null} $dados */
+    /** @param array{vai?: bool, autorizacao_entregue?: bool, observacao?: string|null} $dados */
     public function atualizar(Inscricao $inscricao, array $dados): Inscricao
     {
         if (($dados['vai'] ?? false) === true && !$inscricao->vai && $inscricao->aluno?->situacao === SituacaoAluno::Transferido->value) {
             throw new DomainException('Aluno transferido não participa do passeio.');
         }
-        // Termo e pagamento só para quem vai; desmarcar continua livre.
-        $marcaTermoOuPago = ($dados['autorizacao_entregue'] ?? false) === true || ($dados['pago'] ?? false) === true;
-        if ($marcaTermoOuPago && !($dados['vai'] ?? $inscricao->vai)) {
-            throw new DomainException('Marque que o aluno vai ao passeio antes de registrar o termo ou o pagamento.');
+        // O pagamento tem registro próprio (PagamentoService); "pago" não é mais editável.
+        unset($dados['pago']);
+        // Termo só para quem vai; desmarcar continua livre.
+        if (($dados['autorizacao_entregue'] ?? false) === true && !($dados['vai'] ?? $inscricao->vai)) {
+            throw new DomainException('Marque que o aluno vai ao passeio antes de registrar o termo.');
         }
 
         return DB::transaction(function () use ($inscricao, $dados): Inscricao {
@@ -150,7 +151,7 @@ final class InscricaoService
         }
         if ($inscricao !== null) {
             $inscricao->restore();
-            $inscricao->update(['vai' => true, 'autorizacao_entregue' => false, 'pago' => false]);
+            $inscricao->update(['vai' => true, 'autorizacao_entregue' => false]);
         } else {
             $inscricao = Inscricao::create(['passeio_id' => $passeio->id, 'aluno_id' => $alunoId, 'vai' => true]);
         }

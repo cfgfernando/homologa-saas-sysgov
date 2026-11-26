@@ -8,6 +8,7 @@ use App\Support\AuditLogger;
 use App\Support\OutboxPublisher;
 use Illuminate\Support\Facades\DB;
 use Modules\Passeio\Models\Assento;
+use Modules\Passeio\Enums\SituacaoFinanceira;
 use Modules\Passeio\Models\Inscricao;
 use Modules\Passeio\Models\Passeio;
 use Modules\Passeio\Models\Veiculo;
@@ -62,9 +63,8 @@ final class PasseioService
     public function indicadores(?Passeio $passeio = null): array
     {
         $escopo = fn ($q) => $passeio !== null ? $q->where('passeio_id', $passeio->id) : $q;
-        $inscricoes = $escopo(Inscricao::query()->with('passeio:id,valor_centavos'))->get();
+        $inscricoes = $escopo(Inscricao::query()->with('passeio:id,valor_centavos', 'pagamentos'))->get();
         $vao = $inscricoes->where('vai', true);
-        $valor = fn (Inscricao $i): int => (int) ($i->passeio->valor_centavos ?? 0);
         $veiculos = $escopo(Veiculo::query())->get(['id', 'capacidade']);
 
         return [
@@ -73,8 +73,11 @@ final class PasseioService
             'alunos_que_vao' => $vao->count(),
             'autorizacoes_entregues' => $vao->where('autorizacao_entregue', true)->count(),
             'autorizacoes_percentual' => $vao->count() > 0 ? round($vao->where('autorizacao_entregue', true)->count() * 100 / $vao->count(), 2) : 0.0,
-            'arrecadado_centavos' => (int) $vao->where('pago', true)->sum($valor),
-            'pendente_centavos' => (int) $vao->where('pago', false)->sum($valor),
+            'arrecadado_centavos' => (int) $vao->sum(fn (Inscricao $i): int => $i->pago_centavos),
+            'pendente_centavos' => (int) $vao->sum(fn (Inscricao $i): int => $i->saldo_centavos),
+            'inscricoes_quitadas' => $vao->where('situacao_financeira', SituacaoFinanceira::Quitado->value)->count(),
+            'inscricoes_parciais' => $vao->where('situacao_financeira', SituacaoFinanceira::Parcial->value)->count(),
+            'inscricoes_pendentes' => $vao->where('situacao_financeira', SituacaoFinanceira::Pendente->value)->count(),
             'total_veiculos' => $veiculos->count(),
             'capacidade_total' => (int) $veiculos->sum('capacidade'),
             'assentos_ocupados' => Assento::query()->whereIn('veiculo_id', $veiculos->pluck('id'))->count(),

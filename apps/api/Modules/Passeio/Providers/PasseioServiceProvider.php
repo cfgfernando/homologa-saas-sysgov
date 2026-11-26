@@ -10,9 +10,11 @@ use Modules\Pessoas\Support\RegistroConciliacao;
 use Modules\Pessoas\Support\ConciliacaoPorModelo;
 use Modules\Pessoas\Services\ConciliacaoRegistry;
 use Modules\Passeio\Models\Inscricao;
+use Modules\Passeio\Models\Pagamento;
 use Modules\Passeio\Models\Passeio;
 use Modules\Passeio\Models\Veiculo;
 use Modules\Passeio\Policies\InscricaoPolicy;
+use Modules\Passeio\Policies\PagamentoPolicy;
 use Modules\Passeio\Policies\PasseioPolicy;
 use Modules\Passeio\Policies\VeiculoPolicy;
 
@@ -33,6 +35,7 @@ final class PasseioServiceProvider extends ServiceProvider
 
         Gate::policy(Passeio::class, PasseioPolicy::class);
         Gate::policy(Inscricao::class, InscricaoPolicy::class);
+        Gate::policy(Pagamento::class, PagamentoPolicy::class);
         Gate::policy(Veiculo::class, VeiculoPolicy::class);
     }
 

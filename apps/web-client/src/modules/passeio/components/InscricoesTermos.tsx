@@ -1,19 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ColumnDef } from '@tanstack/react-table';
-import { ClipboardCheck, MessageSquare, Search, Trash2, UserPlus } from 'lucide-react';
+import { Banknote, ClipboardCheck, MessageSquare, Search, Trash2, UserPlus } from 'lucide-react';
+import { formatarCentavos } from '@/lib/formatacao';
 import { ActionsMenu, Button, Card, CardContent, DataTable, Input, Modal, Select, StatusChip, Switch, Textarea } from '@sysgov/ui';
 import { EmptyState } from '@/components/ui';
 import { escolaApi, erroApi, type Aluno } from '../../escola/api';
 import { ConfirmarModal } from '../../escola/components/ConfirmarModal';
 import { passeioApi, type AlteracaoInscricao, type Inscricao } from '../api';
-import { FILTRO_INICIAL, filtrarInscricoes, listaDaTurma, naoInscrito, type FiltroInscricoes } from '../formato';
+import { FILTRO_INICIAL, SITUACAO_FINANCEIRA, filtrarInscricoes, listaDaTurma, naoInscrito, type FiltroInscricoes } from '../formato';
+import { PagamentosModal } from './PagamentosModal';
 import type { PropsAba } from '../ModuloPasseioMain';
 import { useFormValidationModal } from '@/lib/useFormValidationModal';
 
 const sim = (v: boolean, rotuloSim: string, rotuloNao: string) => <StatusChip label={v ? rotuloSim : rotuloNao} variant={v ? 'success' : 'neutral'} />;
 
 /**
- * Alunos inscritos no passeio ativo: vai, termo entregue e pago; inscrição de aluno ou turma. Com uma turma
+ * Alunos inscritos no passeio ativo: vai, termo entregue e situação do pagamento (com extrato próprio); inscrição de aluno ou turma. Com uma turma
  * escolhida, a lista traz a turma inteira e marcar "Vai" inscreve o aluno. Termo e pagamento só para quem vai.
  */
 export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar, avisar, permissoes }) => {
@@ -23,6 +25,7 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
   const [inscrever, setInscrever] = useState(false);
   const [observacao, setObservacao] = useState<Inscricao | null>(null);
   const [remover, setRemover] = useState<Inscricao | null>(null);
+  const [pagamentos, setPagamentos] = useState<Inscricao | null>(null);
 
   const [alunosDaTurma, setAlunosDaTurma] = useState<{ turmaId: number; alunos: Aluno[] } | null>(null);
 
@@ -60,8 +63,8 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
   };
 
   // Colunas estáveis (os switches não remontam ao gravar); o estado atual vem por ref.
-  const ctx = useRef({ permissoes, salvando, alterar, setObservacao, setRemover });
-  ctx.current = { permissoes, salvando, alterar, setObservacao, setRemover };
+  const ctx = useRef({ permissoes, salvando, alterar, setObservacao, setRemover, setPagamentos });
+  ctx.current = { permissoes, salvando, alterar, setObservacao, setRemover, setPagamentos };
   const colunas = useMemo<ColumnDef<Inscricao, unknown>[]>(() => {
     const nomeDe = (i: Inscricao) => i.aluno?.nome ?? 'Aluno';
     const textoSimNao = (v: boolean) => (v ? 'Sim' : 'Não');
@@ -73,15 +76,19 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
         enableSorting: false,
         cell: ({ row }) => {
           const i = row.original;
-          const { permissoes: perm, setObservacao: abrirObservacao, setRemover: abrirRemover } = ctx.current;
+          const { permissoes: perm, setObservacao: abrirObservacao, setRemover: abrirRemover, setPagamentos: abrirPagamentos } = ctx.current;
+          const itens = [
+            ...(!naoInscrito(i) ? [{ key: 'pagamentos', label: 'Pagamentos', icon: <Banknote className="h-3.5 w-3.5" />, onSelect: () => abrirPagamentos(i) }] : []),
+            ...(perm.passeios && !naoInscrito(i) ? [
+              { key: 'observacao', label: 'Observação', icon: <MessageSquare className="h-3.5 w-3.5" />, onSelect: () => abrirObservacao(i) },
+              { key: 'remover', label: 'Remover do passeio', icon: <Trash2 className="h-3.5 w-3.5" />, onSelect: () => abrirRemover(i) },
+            ] : []),
+          ];
           return (
             <div className="flex justify-center">
               <ActionsMenu
                 triggerLabel={`Ações de ${nomeDe(i)}`}
-                items={perm.passeios && !naoInscrito(i) ? [
-                  { key: 'observacao', label: 'Observação', icon: <MessageSquare className="h-3.5 w-3.5" />, onSelect: () => abrirObservacao(i) },
-                  { key: 'remover', label: 'Remover do passeio', icon: <Trash2 className="h-3.5 w-3.5" />, onSelect: () => abrirRemover(i) },
-                ] : []}
+                items={itens}
               />
             </div>
           );
@@ -136,7 +143,7 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
         cell: ({ row }) => {
           const i = row.original;
           const { permissoes: perm, salvando: emGravacao, alterar: gravar } = ctx.current;
-          // Quem não vai não recebe termo nem pagamento (só pode desmarcar o que já estava marcado).
+          // Quem não vai não recebe termo (só pode desmarcar o que já estava marcado).
           return perm.passeios
             ? <Switch checked={i.autorizacao_entregue} disabled={emGravacao === i.id || (!i.vai && !i.autorizacao_entregue)} onCheckedChange={(v) => void gravar(i, { autorizacao_entregue: v })} label={`Termo de ${nomeDe(i)} entregue`} />
             : sim(i.autorizacao_entregue, 'Entregue', 'Pendente');
@@ -144,17 +151,21 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
         meta: { exportHeader: 'Termo entregue', exportValue: (i) => textoSimNao(i.autorizacao_entregue) },
       },
       {
-        id: 'pago',
-        header: 'Pago',
-        accessorFn: (i) => textoSimNao(i.pago),
+        id: 'pagamento',
+        header: 'Pagamento',
+        accessorFn: (i) => SITUACAO_FINANCEIRA[i.situacao_financeira].rotulo,
         cell: ({ row }) => {
           const i = row.original;
-          const { permissoes: perm, salvando: emGravacao, alterar: gravar } = ctx.current;
-          return perm.passeios
-            ? <Switch checked={i.pago} disabled={emGravacao === i.id || (!i.vai && !i.pago)} onCheckedChange={(v) => void gravar(i, { pago: v })} label={`${nomeDe(i)} pagou`} />
-            : sim(i.pago, 'Pago', 'Pendente');
+          if (naoInscrito(i) || !i.vai) return <span className="text-muted-foreground">—</span>;
+          const s = SITUACAO_FINANCEIRA[i.situacao_financeira];
+          return (
+            <button type="button" className="flex flex-col items-start gap-0.5 text-left" onClick={() => ctx.current.setPagamentos(i)} aria-label={`Pagamentos de ${nomeDe(i)}`}>
+              <StatusChip label={s.rotulo} variant={s.variante} />
+              {i.pago_centavos > 0 && <span className="font-mono text-xs tabular-nums text-muted-foreground">{formatarCentavos(i.pago_centavos)}</span>}
+            </button>
+          );
         },
-        meta: { exportHeader: 'Pago', exportValue: (i) => textoSimNao(i.pago) },
+        meta: { exportHeader: 'Pagamento', exportValue: (i) => `${SITUACAO_FINANCEIRA[i.situacao_financeira].rotulo} (${formatarCentavos(i.pago_centavos)})` },
       },
     ];
   }, []);
@@ -167,7 +178,7 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
           <Select label="Turma" value={filtro.turmaId ?? 'todas'} onChange={(v) => definir('turmaId', v === 'todas' ? null : Number(v))} options={[{ value: 'todas', label: 'Todas' }, ...dados.turmas.map((t) => ({ value: t.id, label: t.nome }))]} />
           <Select label="Vai" value={filtro.participacao} onChange={(v) => definir('participacao', v as FiltroInscricoes['participacao'])} options={[{ value: 'todos', label: 'Todos' }, { value: 'vai', label: 'Vai' }, { value: 'nao_vai', label: 'Não vai' }]} />
           <Select label="Termo" value={filtro.termo} onChange={(v) => definir('termo', v as FiltroInscricoes['termo'])} options={[{ value: 'todos', label: 'Todos' }, { value: 'entregue', label: 'Entregue' }, { value: 'pendente', label: 'Pendente' }]} />
-          <Select label="Pagamento" value={filtro.pagamento} onChange={(v) => definir('pagamento', v as FiltroInscricoes['pagamento'])} options={[{ value: 'todos', label: 'Todos' }, { value: 'pago', label: 'Pago' }, { value: 'pendente', label: 'Pendente' }]} />
+          <Select label="Pagamento" value={filtro.pagamento} onChange={(v) => definir('pagamento', v as FiltroInscricoes['pagamento'])} options={[{ value: 'todos', label: 'Todos' }, { value: 'quitado', label: 'Quitado' }, { value: 'parcial', label: 'Parcial' }, { value: 'pendente', label: 'Pendente' }]} />
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">
@@ -193,6 +204,7 @@ export const InscricoesTermos: React.FC<PropsAba> = ({ ativo, dados, recarregar,
 
       <InscreverModal aberto={inscrever} {...{ ativo, dados, avisar, recarregar }} onFechar={() => setInscrever(false)} />
       <ObservacaoModal inscricao={observacao} onFechar={() => setObservacao(null)} onSalvar={async (texto) => { if (observacao) await alterar(observacao, { observacao: texto || null }); setObservacao(null); }} />
+      <PagamentosModal inscricao={pagamentos} podeRegistrar={permissoes.pagamentos} onFechar={() => setPagamentos(null)} onAlterado={recarregar} />
       <ConfirmarModal
         aberto={remover !== null}
         titulo="Remover do passeio"

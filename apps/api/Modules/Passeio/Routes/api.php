@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 use Illuminate\Support\Facades\Route;
 use Modules\Passeio\Http\Controllers\FrotaController;
+use Modules\Passeio\Http\Controllers\PagamentoController;
 use Modules\Passeio\Http\Controllers\PasseioController;
 
 Route::get('/indicadores', [PasseioController::class, 'indicadoresGerais']);
@@ -27,6 +28,11 @@ Route::post('/passeios/{passeio}/inscricoes', [PasseioController::class, 'inscre
 Route::put('/passeios/{passeio}/inscricoes/lote', [PasseioController::class, 'inscricoesEmLote']);
 Route::put('/inscricoes/{inscricao}', [PasseioController::class, 'atualizarInscricao']);
 Route::delete('/inscricoes/{inscricao}', [PasseioController::class, 'excluirInscricao']);
+
+// Pagamentos da inscrição (estorno em vez de exclusão)
+Route::get('/inscricoes/{inscricao}/pagamentos', [PagamentoController::class, 'index']);
+Route::post('/inscricoes/{inscricao}/pagamentos', [PagamentoController::class, 'store']);
+Route::post('/pagamentos/{pagamento}/estorno', [PagamentoController::class, 'estornar']);
 
 // Frota e mapa de assentos
 Route::get('/passeios/{passeio}/veiculos', [FrotaController::class, 'index']);

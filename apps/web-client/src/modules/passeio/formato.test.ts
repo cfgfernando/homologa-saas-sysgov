@@ -5,7 +5,8 @@ import { escolherAtivo } from './ModuloPasseioMain';
 import { inscricao, passeio } from './fixtures.test-utils';
 
 const lista = [
-  inscricao(1, 'Álvaro', 1, '5º A', { pago: true }),
+  inscricao(1, 'Álvaro', 1, '5º A', { pago: true, pago_centavos: 4500, saldo_centavos: 0, situacao_financeira: 'quitado' }),
+  inscricao(4, 'Duda', 2, '5º B', { pago_centavos: 2000, saldo_centavos: 2500, situacao_financeira: 'parcial' }),
   inscricao(2, 'Bruna', 1, '5º A', { autorizacao_entregue: true }),
   inscricao(3, 'Caio', 2, '5º B', { vai: false }),
 ];
@@ -27,16 +28,20 @@ describe('formato do Passeio', () => {
 
   it('filtra por turma, participação, termo, pagamento e busca sem acento', () => {
     expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, turmaId: 1 })).toHaveLength(2);
+    expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, pagamento: 'parcial' }).map((i) => i.id)).toEqual([4]);
     expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, participacao: 'nao_vai' }).map((i) => i.id)).toEqual([3]);
     expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, termo: 'entregue' }).map((i) => i.id)).toEqual([2]);
-    expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, pagamento: 'pago' }).map((i) => i.id)).toEqual([1]);
+    expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, pagamento: 'quitado' }).map((i) => i.id)).toEqual([1]);
     expect(filtrarInscricoes(lista, { ...FILTRO_INICIAL, busca: 'alvaro' }).map((i) => i.id)).toEqual([1]);
   });
 
-  it('demonstrativo conta só quem vai', () => {
-    const { linhas, total } = demonstrativo(lista, 4500);
-    expect(linhas).toEqual([{ turma: '5º A', vao: 2, pagos: 1, pendentes: 1, arrecadadoCentavos: 4500, aReceberCentavos: 4500 }]);
-    expect(total).toMatchObject({ vao: 2, arrecadadoCentavos: 4500 });
+  it('demonstrativo conta só quem vai, com os valores pagos de verdade', () => {
+    const { linhas, total } = demonstrativo(lista);
+    expect(linhas).toEqual([
+      { turma: '5º A', vao: 2, pagos: 1, parciais: 0, pendentes: 1, arrecadadoCentavos: 4500, aReceberCentavos: 4500 },
+      { turma: '5º B', vao: 1, pagos: 0, parciais: 1, pendentes: 0, arrecadadoCentavos: 2000, aReceberCentavos: 2500 },
+    ]);
+    expect(total).toMatchObject({ vao: 3, arrecadadoCentavos: 6500, aReceberCentavos: 7000 });
   });
 
   it('distribui quem vai sem assento nos lugares livres, sem mexer nos ocupados', () => {
@@ -45,8 +50,9 @@ describe('formato do Passeio', () => {
       { veiculo_id: 5, capacidade: 3, ocupados: [{ numero: 1, aluno_id: 10, aluno: 'Álvaro', turma: '5º A' }] },
       { veiculo_id: 6, capacidade: 2, ocupados: [] },
     ];
-    expect(semAssento(lista, mapas).map((i) => i.id)).toEqual([2]);
-    expect(distribuir(lista, veiculos, mapas)).toEqual([{ veiculoId: 5, numero: 2, alunoId: 20 }]);
+    const semDuda = lista.filter((i) => i.id !== 4);
+    expect(semAssento(semDuda, mapas).map((i) => i.id)).toEqual([2]);
+    expect(distribuir(semDuda, veiculos, mapas)).toEqual([{ veiculoId: 5, numero: 2, alunoId: 20 }]);
   });
 
   it('agrupa em pares e gera CSV com BOM e aspas escapadas', () => {

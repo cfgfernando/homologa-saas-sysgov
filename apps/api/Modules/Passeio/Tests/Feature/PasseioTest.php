@@ -70,12 +70,17 @@ final class PasseioTest extends TestCase
         $this->como($coordenacao, $tenant)->postJson("/api/passeio/passeios/{$id}/inscricoes", ['turma_id' => $alunos->first()->turma_id])
             ->assertCreated()->assertJsonPath('criadas', 25)->assertJsonPath('ja_inscritos', 5);
 
-        // 10 vão, 6 pagos: arrecadado 30000, pendente 20000
+        // 10 vão, 6 quitados: arrecadado 30000, pendente 20000
         $inscricoes = $this->noTenant($tenant, fn () => Inscricao::where('passeio_id', $id)->orderBy('id')->get());
         foreach ($inscricoes as $i => $inscricao) {
             $this->como($coordenacao, $tenant)->putJson("/api/passeio/inscricoes/{$inscricao->id}", [
-                'vai' => $i < 10, 'pago' => $i < 6, 'autorizacao_entregue' => $i < 5,
+                'vai' => $i < 10, 'autorizacao_entregue' => $i < 5,
             ])->assertOk();
+            if ($i < 6) {
+                $this->como($coordenacao, $tenant)->postJson("/api/passeio/inscricoes/{$inscricao->id}/pagamentos", [
+                    'valor_centavos' => 5000, 'data_pagamento' => now()->toDateString(), 'forma_pagamento' => 'pix',
+                ])->assertCreated();
+            }
         }
 
         $this->como($coordenacao, $tenant)->getJson("/api/passeio/passeios/{$id}/indicadores")->assertOk()
@@ -83,6 +88,8 @@ final class PasseioTest extends TestCase
             ->assertJsonPath('alunos_que_vao', 10)
             ->assertJsonPath('arrecadado_centavos', 30000)
             ->assertJsonPath('pendente_centavos', 20000)
+            ->assertJsonPath('inscricoes_quitadas', 6)
+            ->assertJsonPath('inscricoes_pendentes', 4)
             ->assertJsonPath('autorizacoes_entregues', 5);
     }
 

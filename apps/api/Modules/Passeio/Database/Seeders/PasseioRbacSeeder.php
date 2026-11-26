@@ -22,6 +22,7 @@ final class PasseioRbacSeeder extends Seeder
         'passeio.view' => 'Acessar o módulo de Passeios',
         'passeio.passeios.manage' => 'Gerenciar passeios, inscrições e autorizações',
         'passeio.frota.manage' => 'Gerenciar veículos e o mapa de assentos dos passeios',
+        'passeio.pagamentos.manage' => 'Registrar e estornar pagamentos dos passeios',
     ];
 
     /** @var array<string, array{name: string, description: string, permissions: list<string>}> */
@@ -29,7 +30,7 @@ final class PasseioRbacSeeder extends Seeder
         'passeio_coordenacao' => [
             'name' => 'Coordenação de Passeios',
             'description' => 'Acesso total: passeios, inscrições, autorizações, veículos e assentos',
-            'permissions' => ['escola.view', 'passeio.view', 'passeio.passeios.manage', 'passeio.frota.manage'],
+            'permissions' => ['escola.view', 'passeio.view', 'passeio.passeios.manage', 'passeio.frota.manage', 'passeio.pagamentos.manage'],
         ],
         'passeio_apoio' => [
             'name' => 'Apoio (Passeios)',

@@ -11,14 +11,15 @@ export const passeio: Passeio = {
 };
 
 export const inscricao = (id: number, nome: string, turmaId: number, turma: string, extra: Partial<Inscricao> = {}): Inscricao => ({
-  id, passeio_id: 7, aluno_id: id * 10, vai: true, autorizacao_entregue: false, pago: false, observacao: null,
+  id, passeio_id: 7, aluno_id: id * 10, vai: true, autorizacao_entregue: false, pago: false,
+  pago_centavos: 0, saldo_centavos: 4500, situacao_financeira: 'pendente', observacao: null,
   aluno: { id: id * 10, nome, numero: id, turma_id: turmaId, situacao: 'ativo', telefone: null, turma: { id: turmaId, nome: turma } },
   ...extra,
 });
 
 export function propsAba(extra: Partial<PropsAba> = {}): PropsAba {
   const inscricoes = [
-    inscricao(1, 'ALICIA SOUZA', 1, '5º A', { pago: true, autorizacao_entregue: true }),
+    inscricao(1, 'ALICIA SOUZA', 1, '5º A', { pago: true, pago_centavos: 4500, saldo_centavos: 0, situacao_financeira: 'quitado', autorizacao_entregue: true }),
     inscricao(2, 'BRUNO LIMA', 1, '5º A'),
     inscricao(3, 'CARLA DIAS', 2, '5º B', { vai: false }),
   ];
@@ -26,12 +27,12 @@ export function propsAba(extra: Partial<PropsAba> = {}): PropsAba {
     ativo: passeio,
     dados: {
       passeio, inscricoes, veiculos: [], mapas: [],
-      indicadores: { total_passeios: 1, alunos_inscritos: 3, alunos_que_vao: 2, autorizacoes_entregues: 1, autorizacoes_percentual: 50, arrecadado_centavos: 4500, pendente_centavos: 4500, total_veiculos: 0, capacidade_total: 0, assentos_ocupados: 0 },
+      indicadores: { total_passeios: 1, alunos_inscritos: 3, alunos_que_vao: 2, autorizacoes_entregues: 1, autorizacoes_percentual: 50, arrecadado_centavos: 4500, pendente_centavos: 4500, inscricoes_quitadas: 1, inscricoes_parciais: 0, inscricoes_pendentes: 1, total_veiculos: 0, capacidade_total: 0, assentos_ocupados: 0 },
       turmas: [{ id: 1, nome: '5º A', ano_letivo: 2026, turno: { id: 1, nome: 'Manhã' }, total_alunos: 2 }, { id: 2, nome: '5º B', ano_letivo: 2026, turno: { id: 1, nome: 'Manhã' }, total_alunos: 1 }] as Turma[],
     },
     recarregar: vi.fn().mockResolvedValue(undefined),
     avisar: vi.fn(),
-    permissoes: { passeios: true, frota: true },
+    permissoes: { passeios: true, frota: true, pagamentos: true },
     escola: 'Escola Municipal Exemplo',
     irPara: vi.fn(),
     ...extra,

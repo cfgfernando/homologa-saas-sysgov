@@ -34,7 +34,11 @@ export interface Inscricao {
   aluno_id: number;
   vai: boolean;
   autorizacao_entregue: boolean;
+  /** @deprecated derivado de situacao_financeira === 'quitado'; não é editável. */
   pago: boolean;
+  pago_centavos: number;
+  saldo_centavos: number;
+  situacao_financeira: SituacaoFinanceira;
   observacao: string | null;
   aluno?: {
     id: number;
@@ -48,7 +52,32 @@ export interface Inscricao {
   } | null;
 }
 
-export type AlteracaoInscricao = Partial<Pick<Inscricao, 'vai' | 'autorizacao_entregue' | 'pago' | 'observacao'>>;
+export type AlteracaoInscricao = Partial<Pick<Inscricao, 'vai' | 'autorizacao_entregue' | 'observacao'>>;
+
+export type SituacaoFinanceira = 'pendente' | 'parcial' | 'quitado';
+export type FormaPagamento = 'dinheiro' | 'pix' | 'cartao' | 'transferencia' | 'outro';
+
+export interface Pagamento {
+  id: number;
+  inscricao_id: number;
+  valor_centavos: number;
+  data_pagamento: string;
+  forma_pagamento: FormaPagamento;
+  observacao: string | null;
+  estornado_em: string | null;
+  motivo_estorno: string | null;
+}
+
+export interface ExtratoPagamentos {
+  inscricao_id: number;
+  devido_centavos: number;
+  pago_centavos: number;
+  saldo_centavos: number;
+  situacao_financeira: SituacaoFinanceira;
+  pagamentos: Pagamento[];
+}
+
+export interface NovoPagamento { valor_centavos: number; data_pagamento: string; forma_pagamento: FormaPagamento; observacao?: string | null }
 
 export interface Veiculo {
   id: number;
@@ -75,6 +104,9 @@ export interface Indicadores {
   autorizacoes_percentual: number;
   arrecadado_centavos: number;
   pendente_centavos: number;
+  inscricoes_quitadas: number;
+  inscricoes_parciais: number;
+  inscricoes_pendentes: number;
   total_veiculos: number;
   capacidade_total: number;
   assentos_ocupados: number;
@@ -104,6 +136,10 @@ export const passeioApi = {
   inscricoesEmLote: (passeioId: number, turmaId: number, vai: boolean) => put<{ afetadas: number; criadas: number }>(`/passeios/${passeioId}/inscricoes/lote`, { turma_id: turmaId, vai }),
   atualizarInscricao: (id: number, dados: AlteracaoInscricao) => put<Inscricao>(`/inscricoes/${id}`, dados),
   excluirInscricao: (id: number) => del(`/inscricoes/${id}`),
+
+  pagamentos: (inscricaoId: number) => get<ExtratoPagamentos>(`/inscricoes/${inscricaoId}/pagamentos`),
+  registrarPagamento: (inscricaoId: number, dados: NovoPagamento) => post<Pagamento>(`/inscricoes/${inscricaoId}/pagamentos`, dados),
+  estornarPagamento: (id: number, motivo: string) => post<Pagamento>(`/pagamentos/${id}/estorno`, { motivo }),
 
   veiculos: (passeioId: number) => get<Veiculo[]>(`/passeios/${passeioId}/veiculos`),
   criarVeiculo: (passeioId: number, dados: DadosVeiculo) => post<Veiculo>(`/passeios/${passeioId}/veiculos`, dados),

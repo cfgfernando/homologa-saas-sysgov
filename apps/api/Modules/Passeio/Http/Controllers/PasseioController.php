@@ -85,7 +85,7 @@ final class PasseioController extends Controller
         // Situação e telefone principal vêm do Cadastro Escolar, só para leitura (D18).
         return response()->json(Inscricao::query()
             ->where('passeio_id', $passeio->id)
-            ->with('aluno:id,nome,numero,turma_id,situacao', 'aluno.turma:id,nome', 'aluno.contatos')
+            ->with('aluno:id,nome,numero,turma_id,situacao', 'aluno.turma:id,nome', 'aluno.contatos', 'passeio:id,valor_centavos', 'pagamentos')
             ->get()
             ->sortBy(fn (Inscricao $i): string => ($i->aluno->turma->nome ?? '') . sprintf('%05d', $i->aluno->numero ?? 0) . ($i->aluno->nome ?? ''))
             ->values()
@@ -93,6 +93,7 @@ final class PasseioController extends Controller
                 $linha = $i->toArray();
                 if ($i->aluno !== null) {
                     unset($linha['aluno']['contatos']);
+                    unset($linha['passeio']);
                     $linha['aluno']['telefone'] = $i->aluno->contatos->first()?->telefone;
                 }
 
@@ -128,7 +129,7 @@ final class PasseioController extends Controller
 
     public function atualizarInscricao(AtualizarInscricaoRequest $request, Inscricao $inscricao): JsonResponse
     {
-        /** @var array{vai?: bool, autorizacao_entregue?: bool, pago?: bool, observacao?: string|null} $dados */
+        /** @var array{vai?: bool, autorizacao_entregue?: bool, observacao?: string|null} $dados */
         $dados = $request->validated();
 
         return $this->executar(fn (): JsonResponse => response()->json($this->inscricoes->atualizar($inscricao, $dados)));

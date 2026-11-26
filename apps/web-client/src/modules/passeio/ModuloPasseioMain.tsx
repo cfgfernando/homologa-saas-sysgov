@@ -33,7 +33,7 @@ export interface PropsAba {
   irPara: (aba: Aba, extras?: Record<string, string>) => void;
 }
 
-export interface Permissoes { passeios: boolean; frota: boolean }
+export interface Permissoes { passeios: boolean; frota: boolean; pagamentos: boolean }
 
 const ABAS: { id: Aba; rotulo: string; icone: React.ElementType }[] = [
   { id: 'painel', rotulo: 'Painel', icone: LayoutDashboard },
@@ -71,7 +71,7 @@ export const ModuloPasseioMain: React.FC = () => {
   const aba = (ABAS.some((a) => a.id === parametros.get('aba')) ? parametros.get('aba') : 'painel') as Aba;
   const escola = lista.dados?.escolas.find((e) => e.id === obterEscolaAtiva())?.nome ?? '';
 
-  const permissoes: Permissoes = { passeios: can('passeio.passeios.manage'), frota: can('passeio.frota.manage') };
+  const permissoes: Permissoes = { passeios: can('passeio.passeios.manage'), frota: can('passeio.frota.manage'), pagamentos: can('passeio.pagamentos.manage') };
 
   const mudar = (chave: 'aba' | 'passeio', valor: string) => {
     const novos = new URLSearchParams(parametros);

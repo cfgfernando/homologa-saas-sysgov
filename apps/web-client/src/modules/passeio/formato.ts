@@ -1,6 +1,6 @@
 import type { StatusChipProps } from '@sysgov/ui';
-import { paraCentavos } from '@/lib/formatacao';
-import type { DadosPasseio, Inscricao, MapaAssentos, Passeio, SituacaoAluno, StatusPasseio, Veiculo } from './api';
+import { formatarCentavos, paraCentavos } from '@/lib/formatacao';
+import type { DadosPasseio, FormaPagamento, Inscricao, MapaAssentos, Passeio, SituacaoAluno, SituacaoFinanceira, StatusPasseio, Veiculo } from './api';
 
 /** Regras de apresentação do Passeio (puras — testadas no vitest). */
 
@@ -14,6 +14,18 @@ export const STATUS: Record<StatusPasseio, { rotulo: string; variante: Variante 
 };
 
 export const OPCOES_STATUS = (Object.keys(STATUS) as StatusPasseio[]).map((s) => ({ value: s, label: STATUS[s].rotulo }));
+
+export const SITUACAO_FINANCEIRA: Record<SituacaoFinanceira, { rotulo: string; variante: Variante }> = {
+  quitado: { rotulo: 'Quitado', variante: 'success' },
+  parcial: { rotulo: 'Parcial', variante: 'warning' },
+  pendente: { rotulo: 'Pendente', variante: 'neutral' },
+};
+
+export const FORMAS_PAGAMENTO: Record<FormaPagamento, string> = {
+  dinheiro: 'Dinheiro', pix: 'PIX', cartao: 'Cartão', transferencia: 'Transferência', outro: 'Outro',
+};
+
+export const OPCOES_FORMA_PAGAMENTO = (Object.keys(FORMAS_PAGAMENTO) as FormaPagamento[]).map((f) => ({ value: f, label: FORMAS_PAGAMENTO[f] }));
 
 /** Capacidades mais comuns de ônibus (atalhos no cadastro do veículo). */
 export const CAPACIDADES_COMUNS = [40, 44, 46, 50, 52];
@@ -76,8 +88,8 @@ export interface FiltroInscricoes {
   participacao: 'todos' | 'vai' | 'nao_vai';
   /** "todos" | "entregue" | "pendente" */
   termo: 'todos' | 'entregue' | 'pendente';
-  /** "todos" | "pago" | "pendente" */
-  pagamento: 'todos' | 'pago' | 'pendente';
+  /** "todos" ou a situação financeira */
+  pagamento: 'todos' | SituacaoFinanceira;
   busca: string;
 }
 
@@ -91,7 +103,7 @@ export function filtrarInscricoes(lista: Inscricao[], f: FiltroInscricoes): Insc
     if (f.turmaId !== null && i.aluno?.turma_id !== f.turmaId) return false;
     if (f.participacao !== 'todos' && i.vai !== (f.participacao === 'vai')) return false;
     if (f.termo !== 'todos' && i.autorizacao_entregue !== (f.termo === 'entregue')) return false;
-    if (f.pagamento !== 'todos' && i.pago !== (f.pagamento === 'pago')) return false;
+    if (f.pagamento !== 'todos' && i.situacao_financeira !== f.pagamento) return false;
     if (busca && !semAcento(`${i.aluno?.nome ?? ''} ${i.aluno?.turma?.nome ?? ''}`).includes(busca)) return false;
     return true;
   });
@@ -115,7 +127,8 @@ export function listaDaTurma(
   const faltam = alunos
     .filter((a) => a.situacao !== 'transferido' && !inscritos.has(a.id))
     .map((a): Inscricao => ({
-      id: -a.id, passeio_id: passeioId, aluno_id: a.id, vai: false, autorizacao_entregue: false, pago: false, observacao: null,
+      id: -a.id, passeio_id: passeioId, aluno_id: a.id, vai: false, autorizacao_entregue: false, pago: false,
+      pago_centavos: 0, saldo_centavos: 0, situacao_financeira: 'pendente', observacao: null,
       aluno: { id: a.id, nome: a.nome, numero: a.numero, turma_id: turma.id, situacao: a.situacao, telefone: null, turma },
     }));
   const ordem = (i: Inscricao) => i.aluno?.numero ?? Number.MAX_SAFE_INTEGER;
@@ -134,18 +147,24 @@ export function porTurma(lista: Inscricao[]): { turma: string; turmaId: number |
   return [...grupos.values()];
 }
 
-export interface LinhaArrecadacao { turma: string; vao: number; pagos: number; pendentes: number; arrecadadoCentavos: number; aReceberCentavos: number }
+export interface LinhaArrecadacao { turma: string; vao: number; pagos: number; parciais: number; pendentes: number; arrecadadoCentavos: number; aReceberCentavos: number }
 
-/** Demonstrativo por turma: só quem vai entra na conta (mesma base dos indicadores da API). */
-export function demonstrativo(lista: Inscricao[], valorCentavos: number): { linhas: LinhaArrecadacao[]; total: LinhaArrecadacao } {
+/**
+ * Demonstrativo por turma: só quem vai entra na conta (mesma base dos indicadores da API). Arrecadado e a
+ * receber vêm dos pagamentos reais de cada inscrição; "pagos" são os quitados.
+ */
+export function demonstrativo(lista: Inscricao[]): { linhas: LinhaArrecadacao[]; total: LinhaArrecadacao } {
   const linhas = porTurma(lista.filter((i) => i.vai)).map(({ turma, inscricoes }) => {
-    const pagos = inscricoes.filter((i) => i.pago).length;
-    const pendentes = inscricoes.length - pagos;
-    return { turma, vao: inscricoes.length, pagos, pendentes, arrecadadoCentavos: pagos * valorCentavos, aReceberCentavos: pendentes * valorCentavos };
+    const conta = (s: SituacaoFinanceira) => inscricoes.filter((i) => i.situacao_financeira === s).length;
+    return {
+      turma, vao: inscricoes.length, pagos: conta('quitado'), parciais: conta('parcial'), pendentes: conta('pendente'),
+      arrecadadoCentavos: inscricoes.reduce((t, i) => t + i.pago_centavos, 0),
+      aReceberCentavos: inscricoes.reduce((t, i) => t + i.saldo_centavos, 0),
+    };
   });
   const total = linhas.reduce(
-    (t, l) => ({ ...t, vao: t.vao + l.vao, pagos: t.pagos + l.pagos, pendentes: t.pendentes + l.pendentes, arrecadadoCentavos: t.arrecadadoCentavos + l.arrecadadoCentavos, aReceberCentavos: t.aReceberCentavos + l.aReceberCentavos }),
-    { turma: 'Total', vao: 0, pagos: 0, pendentes: 0, arrecadadoCentavos: 0, aReceberCentavos: 0 },
+    (t, l) => ({ ...t, vao: t.vao + l.vao, pagos: t.pagos + l.pagos, parciais: t.parciais + l.parciais, pendentes: t.pendentes + l.pendentes, arrecadadoCentavos: t.arrecadadoCentavos + l.arrecadadoCentavos, aReceberCentavos: t.aReceberCentavos + l.aReceberCentavos }),
+    { turma: 'Total', vao: 0, pagos: 0, parciais: 0, pendentes: 0, arrecadadoCentavos: 0, aReceberCentavos: 0 },
   );
   return { linhas, total };
 }
@@ -184,6 +203,6 @@ export function distribuir(inscricoes: Inscricao[], veiculos: Veiculo[], mapas: 
 /** CSV (separador ;) das inscrições exibidas — gerado no navegador a partir dos dados da API. */
 export function csvInscricoes(lista: Inscricao[]): string {
   const campo = (v: string | number | null | undefined): string => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const linhas = lista.map((i) => [i.aluno?.numero, i.aluno?.nome, i.aluno?.turma?.nome, i.aluno?.telefone, i.vai ? 'Sim' : 'Não', i.autorizacao_entregue ? 'Sim' : 'Não', i.pago ? 'Sim' : 'Não', i.observacao].map(campo).join(';'));
-  return `﻿${['Nº', 'Aluno', 'Turma', 'Telefone', 'Vai', 'Termo entregue', 'Pago', 'Observação'].map(campo).join(';')}\n${linhas.join('\n')}\n`;
+  const linhas = lista.map((i) => [i.aluno?.numero, i.aluno?.nome, i.aluno?.turma?.nome, i.aluno?.telefone, i.vai ? 'Sim' : 'Não', i.autorizacao_entregue ? 'Sim' : 'Não', SITUACAO_FINANCEIRA[i.situacao_financeira].rotulo, formatarCentavos(i.pago_centavos), i.observacao].map(campo).join(';'));
+  return `﻿${['Nº', 'Aluno', 'Turma', 'Telefone', 'Vai', 'Termo entregue', 'Pagamento', 'Valor pago', 'Observação'].map(campo).join(';')}\n${linhas.join('\n')}\n`;
 }

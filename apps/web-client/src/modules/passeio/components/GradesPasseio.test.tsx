@@ -17,7 +17,7 @@ beforeAll(() => {
 beforeEach(() => vi.clearAllMocks());
 
 const propsLista = (passeios: boolean, extra: Partial<React.ComponentProps<typeof PasseiosLista>> = {}): React.ComponentProps<typeof PasseiosLista> => ({
-  passeios: [passeio], ativoId: 7, permissoes: { passeios, frota: false }, avisar: vi.fn(), recarregar: vi.fn().mockResolvedValue(undefined), selecionar: vi.fn(), ...extra,
+  passeios: [passeio], ativoId: 7, permissoes: { passeios, frota: false, pagamentos: false }, avisar: vi.fn(), recarregar: vi.fn().mockResolvedValue(undefined), selecionar: vi.fn(), ...extra,
 });
 
 describe('Grade de passeios', () => {
