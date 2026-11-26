@@ -19,4 +19,11 @@ abstract class TestCase extends BaseTestCase
 
         return $app;
     }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Criar campanha ou pedir mapa de UF sem malha agenda a importação real (IBGE/TSE): nunca nos testes.
+        \Illuminate\Support\Facades\Bus::fake([\Modules\Campanha\Jobs\ImportarReferenciaJob::class, \Modules\Campanha\Jobs\ImportarBairrosJob::class]);
+    }
 }

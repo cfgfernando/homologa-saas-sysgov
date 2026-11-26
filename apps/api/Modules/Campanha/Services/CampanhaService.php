@@ -15,6 +15,8 @@ use Modules\Campanha\Models\Candidato;
 use Modules\Campanha\Models\Eleitor;
 use Modules\Campanha\Models\Membro;
 use Modules\Campanha\Services\Concerns\RegistraMutacao;
+use Modules\Campanha\Services\Referencia\ImportacaoReferenciaService;
+use Modules\Campanha\Services\Referencia\UnidadesFederativas;
 use Modules\Pessoas\Services\ResolucaoPessoaService;
 
 /** Campanhas, candidato (Pessoa pelo CPF) e membros (D2, D8). */
@@ -30,14 +32,22 @@ final class CampanhaService
         private readonly OutboxPublisher $outbox,
         private readonly TenantContext $tenant,
         private readonly ResolucaoPessoaService $pessoas,
+        private readonly ImportacaoReferenciaService $importacao,
     ) {}
 
     /** @param array<string, mixed> $dados */
     public function criar(array $dados): Campanha
     {
+        $dados = $this->normalizarMunicipio($dados, null);
+
         return DB::transaction(function () use ($dados): Campanha {
             $campanha = Campanha::create($dados);
             $this->auditar('campanha', 'criada', $campanha->id, null, $campanha->toArray());
+            // Mapa da UF escolhida: importa a base pública se ainda não existir (D7).
+            $this->importacao->solicitarSeFaltar((string) $campanha->uf);
+            if ($campanha->municipal() && $campanha->codigo_ibge !== null) {
+                $this->importacao->solicitarBairrosSeFaltar($campanha->codigo_ibge);
+            }
 
             return $campanha;
         });
@@ -61,13 +71,48 @@ final class CampanhaService
             }
         }
 
+        $dados = $this->normalizarMunicipio($dados, $campanha);
+
         return DB::transaction(function () use ($campanha, $dados): Campanha {
             $antes = $campanha->toArray();
             $campanha->update($dados);
             $this->auditar('campanha', 'atualizada', $campanha->id, $antes, $campanha->toArray());
+            if ($campanha->wasChanged('uf')) {
+                $this->importacao->solicitarSeFaltar((string) $campanha->uf);
+            }
+            if ($campanha->municipal() && $campanha->codigo_ibge !== null) {
+                $this->importacao->solicitarBairrosSeFaltar($campanha->codigo_ibge);
+            }
 
             return $campanha;
         });
+    }
+
+    /**
+     * Prefeito/Vereador exigem o município de atuação, dentro da UF da campanha; nos demais cargos ele é limpo.
+     *
+     * @param array<string, mixed> $dados
+     * @return array<string, mixed>
+     */
+    private function normalizarMunicipio(array $dados, ?Campanha $atual): array
+    {
+        $cargo = (string) ($dados['cargo'] ?? $atual?->cargo);
+        $uf = strtoupper((string) ($dados['uf'] ?? $atual?->uf));
+        if (!in_array($cargo, Campanha::CARGOS_MUNICIPAIS, true)) {
+            $dados['codigo_ibge'] = null;
+
+            return $dados;
+        }
+        $codigo = array_key_exists('codigo_ibge', $dados) ? $dados['codigo_ibge'] : $atual?->codigo_ibge;
+        if ($codigo === null) {
+            throw new DomainException("Informe o município da campanha para {$cargo}.");
+        }
+        if (intdiv((int) $codigo, 100000) !== UnidadesFederativas::codigo($uf)) {
+            throw new DomainException("O município escolhido não pertence a {$uf}.");
+        }
+        $dados['codigo_ibge'] = (int) $codigo;
+
+        return $dados;
     }
 
     /** A campanha sai da lista (exclusão lógica), mas os eleitores dela são apagados de vez (LGPD — D5). */

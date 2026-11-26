@@ -23,3 +23,4 @@ Route::get('/campanhas/{campanha}/usuarios', [CampanhaController::class, 'usuari
 // Base territorial pública (IBGE/TSE), só leitura
 Route::get('/referencia/{uf}/municipios', [\Modules\Campanha\Http\Controllers\ReferenciaController::class, 'municipios'])->where('uf', '[A-Za-z]{2}');
 Route::get('/referencia/{uf}/malha', [\Modules\Campanha\Http\Controllers\ReferenciaController::class, 'malha'])->where('uf', '[A-Za-z]{2}');
+Route::get('/referencia/municipios/{codigoIbge}/bairros', [\Modules\Campanha\Http\Controllers\ReferenciaController::class, 'bairros'])->whereNumber('codigoIbge');

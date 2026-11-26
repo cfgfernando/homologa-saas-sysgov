@@ -8,13 +8,16 @@ import { campanhaApi, type Camada } from '../api';
 import { ROTULO_CAMADA, ROTULO_SITUACAO, SITUACOES, formatarNumero } from '../formato';
 import type { PropsAba } from '../ModuloCampanhaMain';
 import { MapaCampanha } from './MapaCampanha';
+import { MapaBairros, ROTULO_CAMADA_BAIRROS, type CamadaBairros } from './MapaBairros';
 import { ProximosCompromissos } from './AgendaCampanha';
 
 const CAMADAS: Camada[] = ['situacao', 'apoio_prefeito', 'meta_votos', 'mapa_calor'];
+const CAMADAS_BAIRROS: CamadaBairros[] = ['eleitores_bairro', 'mapa_calor'];
 
 /** Painel da campanha: indicadores, mapa interativo com as três camadas e gráficos (spec: Mapa interativo). */
 export const PainelCampanha: React.FC<PropsAba> = ({ campanha, abrirMunicipio, versao, permissoes }) => {
   const [camada, setCamada] = useState<Camada>('situacao');
+  const [camadaBairros, setCamadaBairros] = useState<CamadaBairros>('eleitores_bairro');
   const dados = useCarga(async () => {
     const [pontos, painel, calor, indicadores] = await Promise.all([campanhaApi.mapa(), campanhaApi.painel(), campanhaApi.mapaCalor(), campanhaApi.indicadoresEleitores()]);
     const captados = Object.fromEntries(indicadores.por_municipio.map((m) => [m.codigo_ibge, m.total]));
@@ -40,6 +43,21 @@ export const PainelCampanha: React.FC<PropsAba> = ({ campanha, abrirMunicipio, v
         <KpiCard title="Eleitores captados" value={formatarNumero(indicadores.total)} subtitle={`${formatarNumero(indicadores.ultimos_7_dias)} nos últimos 7 dias`} icon={<QrCode className="h-5 w-5" />} className="font-mono tabular-nums" />
       </div>
 
+      {campanha.codigo_ibge ? (
+      <Card>
+        <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <CardTitle className="flex items-center gap-2"><MapIcon className="h-5 w-5 text-primary" />Bairros — {pontos[String(campanha.codigo_ibge)]?.nome ?? 'município'} ({campanha.uf})</CardTitle>
+          <div className="flex flex-wrap gap-1" role="group" aria-label="Camada do mapa">
+            {CAMADAS_BAIRROS.map((c) => (
+              <Button key={c} size="sm" variant={camadaBairros === c ? 'primary' : 'outline'} aria-pressed={camadaBairros === c} onClick={() => setCamadaBairros(c)}>{ROTULO_CAMADA_BAIRROS[c]}</Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <MapaBairros uf={campanha.uf} codigoIbge={campanha.codigo_ibge} camada={camadaBairros} calor={calor} />
+        </CardContent>
+      </Card>
+      ) : (
       <Card>
         <CardHeader className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <CardTitle className="flex items-center gap-2"><MapIcon className="h-5 w-5 text-primary" />Divisão política — {campanha.uf}</CardTitle>
@@ -53,6 +71,7 @@ export const PainelCampanha: React.FC<PropsAba> = ({ campanha, abrirMunicipio, v
           <MapaCampanha uf={campanha.uf} pontos={pontos} camada={camada} cores={campanha.cores} faixas={campanha.faixas} onSelecionar={abrirMunicipio} calor={calor} captados={captados} />
         </CardContent>
       </Card>
+      )}
 
       <div className={`grid gap-4 ${caixa ? 'lg:grid-cols-[2fr_1fr]' : ''}`}>
         <Card>
