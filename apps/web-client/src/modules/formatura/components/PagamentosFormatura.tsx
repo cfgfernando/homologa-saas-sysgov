@@ -59,7 +59,7 @@ export const PagamentosFormatura: React.FC<PropsAba> = ({ ano, dados, recarregar
           {!row.original.participa && <StatusChip label="Não participa — fora do recebido" variant="neutral" className="ml-2" />}
         </span>
       ),
-      meta: { exportHeader: 'Formando', exportValue: (p) => p.aluno_nome },
+      meta: { exportHeader: 'Formando', exportValue: (p) => p.aluno_nome, mobilePrimary: true },
     },
     { id: 'turma', header: 'Turma', accessorFn: (p) => p.turma ?? '', meta: { exportHeader: 'Turma', exportValue: (p) => p.turma ?? '' } },
     {
@@ -107,6 +107,7 @@ export const PagamentosFormatura: React.FC<PropsAba> = ({ ano, dados, recarregar
           ) : (
             <>
               <DataTable
+                mobileCards
                 columns={colunas}
                 data={lista.dados}
                 emptyText="Nenhum pagamento no período."
@@ -114,7 +115,7 @@ export const PagamentosFormatura: React.FC<PropsAba> = ({ ano, dados, recarregar
                 exportFileName="formatura-pagamentos"
                 exportTitle="Formatura e Eventos — Pagamentos"
               />
-              <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm font-medium text-foreground">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-3 text-sm font-medium text-foreground">
                 <span>Recebido ({lista.dados.filter((p) => p.participa).length} lançamentos de participantes)</span>
                 <span className="font-mono tabular-nums">{formatarCentavos(total)}</span>
               </div>

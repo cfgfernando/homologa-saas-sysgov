@@ -89,7 +89,7 @@ export const FormandosFormatura: React.FC<PropsAba> = (props) => {
             <Switch checked={soParticipantes} onCheckedChange={setSoParticipantes} label="Somente participantes" /> Somente participantes
           </label>
           {permissoes.editarFormandos && turmaEscolhida && (
-            <div className="flex gap-2 lg:ml-auto">
+            <div className="flex flex-wrap gap-2 lg:ml-auto">
               <Button variant="outline" onClick={() => setLote({ turmaId: turmaEscolhida.id, turma: turmaEscolhida.nome, participa: true })}>Marcar todos da turma</Button>
               <Button variant="outline" onClick={() => setLote({ turmaId: turmaEscolhida.id, turma: turmaEscolhida.nome, participa: false })}>Desmarcar todos</Button>
             </div>
@@ -100,6 +100,7 @@ export const FormandosFormatura: React.FC<PropsAba> = (props) => {
       <Card>
         <CardContent className="p-0">
           <DataTable
+            mobileCards
             columns={colunas}
             data={lista}
             emptyText="Nenhum aluno encontrado."

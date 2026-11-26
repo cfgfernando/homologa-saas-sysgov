@@ -45,4 +45,22 @@ describe('AlunosConsulta', () => {
     expect(screen.getByRole('button', { name: /exportar/i })).toBeInTheDocument();
     expect(screen.getAllByRole('combobox').length).toBeGreaterThanOrEqual(2);
   });
+
+  it('no celular vira lista de cartões com o interruptor de toque', async () => {
+    const original = window.matchMedia;
+    window.matchMedia = ((q: string) => ({
+      matches: true, media: q, onchange: null,
+      addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn(), dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+    try {
+      render(<MemoryRouter><AlunosConsulta {...props([aluno({ telefone: '41999990000' })])} /></MemoryRouter>);
+      expect(screen.queryByRole('table')).not.toBeInTheDocument();
+      expect(screen.getByRole('list', { name: 'Registros' })).toBeInTheDocument();
+      expect(screen.getByText('ALICIA')).toBeInTheDocument();
+      fireEvent.click(screen.getByRole('switch', { name: 'ALICIA participa' }));
+      expect(formaturaApi.salvarParticipacao).toHaveBeenCalledWith(7, 2026, { participa: true });
+    } finally {
+      window.matchMedia = original;
+    }
+  });
 });

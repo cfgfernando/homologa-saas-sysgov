@@ -66,6 +66,7 @@ export const AlunosConsulta: React.FC<PropsAba> = (props) => {
           <Button variant="outline" className="md:ml-auto" leftIcon={<ExternalLink className="h-4 w-4" />} onClick={() => navigate('/escola')}>Abrir Cadastro Escolar</Button>
         </div>
         <DataTable
+          mobileCards
           columns={colunas}
           data={lista}
           emptyText="Nenhum aluno encontrado."

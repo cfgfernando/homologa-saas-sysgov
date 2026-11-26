@@ -27,7 +27,7 @@ export const colNome: Col = {
       {row.original.situacao_aluno === 'remanejado' && <StatusChip label="Remanejado" variant="info" className="ml-2" />}
     </span>
   ),
-  meta: { exportHeader: 'Nome', exportValue: (f) => f.nome },
+  meta: { exportHeader: 'Nome', exportValue: (f) => f.nome, mobilePrimary: true },
 };
 
 export const colTurma: Col = {
