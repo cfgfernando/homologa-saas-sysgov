@@ -77,7 +77,7 @@ final class InscricoesRegrasTest extends TestCase
             ->assertJsonMissingPath('0.aluno.contatos');
     }
 
-    public function test_quem_nao_vai_nao_recebe_termo_nem_pagamento(): void
+    public function test_quem_nao_vai_nao_recebe_termo(): void
     {
         $tenant = $this->criarTenant();
         $aluno = $this->alunoNaTurma($tenant, 'Davi');
@@ -86,12 +86,12 @@ final class InscricoesRegrasTest extends TestCase
         $inscricao = $coordenacao->postJson("/api/passeio/passeios/{$id}/inscricoes", ['aluno_id' => $aluno->id])->assertCreated()->json('id');
         $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['vai' => false])->assertOk();
 
-        $mensagem = 'Marque que o aluno vai ao passeio antes de registrar o termo ou o pagamento.';
+        $mensagem = 'Marque que o aluno vai ao passeio antes de registrar o termo.';
         $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['autorizacao_entregue' => true])->assertStatus(422)->assertJsonPath('error', $mensagem);
-        $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['pago' => true])->assertStatus(422)->assertJsonPath('error', $mensagem);
 
-        // Voltando a ir (na mesma requisição ou antes), termo e pagamento são aceitos.
-        $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['vai' => true, 'pago' => true])->assertOk()->assertJsonPath('pago', true);
+        // "pago" não é mais editável: é ignorado e a situação continua calculada pelos pagamentos.
+        $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['vai' => true, 'pago' => true])->assertOk()
+            ->assertJsonPath('pago', false)->assertJsonPath('situacao_financeira', 'pendente');
         $coordenacao->putJson("/api/passeio/inscricoes/{$inscricao}", ['autorizacao_entregue' => true])->assertOk()->assertJsonPath('autorizacao_entregue', true);
     }
 

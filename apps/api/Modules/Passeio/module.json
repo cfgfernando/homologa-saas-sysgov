@@ -14,7 +14,8 @@
     "permissions": {
         "passeio.view": "Acessar o módulo de Passeios",
         "passeio.passeios.manage": "Gerenciar passeios, inscrições e autorizações",
-        "passeio.frota.manage": "Gerenciar veículos e o mapa de assentos dos passeios"
+        "passeio.frota.manage": "Gerenciar veículos e o mapa de assentos dos passeios",
+        "passeio.pagamentos.manage": "Registrar e estornar pagamentos dos passeios"
     },
     "menu": {
         "label": "Passeio",

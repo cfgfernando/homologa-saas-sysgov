@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Modules\Finance\Providers;
 
+use App\Events\OutboxMessage;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Modules\Finance\Listeners\ReceitaDePagamentoDePasseioListener;
 use Illuminate\Support\ServiceProvider;
 use Modules\Finance\Models\Expense;
 use Modules\Finance\Models\Invoice;
@@ -20,6 +23,7 @@ final class FinanceServiceProvider extends ServiceProvider
         Gate::policy(Expense::class, FinanceEntryPolicy::class);
         Gate::policy(Invoice::class, FinanceEntryPolicy::class);
         Gate::policy(Transfer::class, FinanceEntryPolicy::class);
+        Event::listen(OutboxMessage::class, ReceitaDePagamentoDePasseioListener::class);
         $this->loadRoutesFrom(__DIR__.'/../Routes/api.php');
         $this->loadMigrationsFrom(__DIR__.'/../Database/Migrations');
     }

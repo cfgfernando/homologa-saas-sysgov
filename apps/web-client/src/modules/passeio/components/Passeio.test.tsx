@@ -9,6 +9,9 @@ const api = vi.hoisted(() => ({
   excluirInscricao: vi.fn(),
   inscreverTurma: vi.fn(),
   inscreverAluno: vi.fn(),
+  pagamentos: vi.fn(),
+  registrarPagamento: vi.fn(),
+  estornarPagamento: vi.fn(),
 }));
 vi.mock('../api', async (original) => ({ ...(await original<typeof import('../api')>()), passeioApi: api }));
 const escola = vi.hoisted(() => ({ todosAlunos: vi.fn() }));
@@ -58,7 +61,7 @@ describe('Turmas do passeio', () => {
   });
 
   it('Apoio não vê as ações de turma inteira, só a de ver os inscritos', () => {
-    render(<MemoryRouter><TurmasPasseio {...propsAba({ permissoes: { passeios: false, frota: false } })} /></MemoryRouter>);
+    render(<MemoryRouter><TurmasPasseio {...propsAba({ permissoes: { passeios: false, frota: false, pagamentos: false } })} /></MemoryRouter>);
     expect(screen.queryByText(/turma inteira/)).not.toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: 'Ver inscritos' }).length).toBeGreaterThan(0);
     expect(screen.getByRole('button', { name: /Abrir Cadastro Escolar/ })).toBeInTheDocument();
@@ -85,12 +88,12 @@ describe('Inscrições e termos', () => {
     await waitFor(() => expect(api.atualizarInscricao).toHaveBeenCalledWith(2, { autorizacao_entregue: true }));
   });
 
-  it('quem não vai fica com termo e pagamento bloqueados', () => {
+  it('quem não vai fica com termo bloqueado e sem acesso a pagamentos', () => {
     render(<InscricoesTermos {...propsAba()} />);
     expect(screen.getByRole('switch', { name: 'Termo de CARLA DIAS entregue' })).toBeDisabled();
-    expect(screen.getByRole('switch', { name: 'CARLA DIAS pagou' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Pagamentos de CARLA DIAS' })).not.toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'Termo de BRUNO LIMA entregue' })).toBeEnabled();
-    expect(screen.getByRole('switch', { name: 'BRUNO LIMA pagou' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Pagamentos de BRUNO LIMA' })).toBeEnabled();
   });
 
   it('ao escolher a turma, lista todos os alunos dela e inscreve quem for marcado para ir', async () => {
@@ -117,10 +120,45 @@ describe('Inscrições e termos', () => {
   });
 
   it('Apoio vê a situação sem chaves de alteração nem inscrição', () => {
-    render(<InscricoesTermos {...propsAba({ permissoes: { passeios: false, frota: false } })} />);
+    render(<InscricoesTermos {...propsAba({ permissoes: { passeios: false, frota: false, pagamentos: false } })} />);
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Inscrever/ })).not.toBeInTheDocument();
-    expect(screen.getAllByText('Pago').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Quitado').length).toBeGreaterThan(0);
+  });
+
+  it('registra pagamento parcial pela janela de pagamentos e recarrega a lista', async () => {
+    api.pagamentos.mockResolvedValue({ inscricao_id: 2, devido_centavos: 4500, pago_centavos: 0, saldo_centavos: 4500, situacao_financeira: 'pendente', pagamentos: [] });
+    api.registrarPagamento.mockResolvedValue({});
+    const props = propsAba();
+    render(<InscricoesTermos {...props} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pagamentos de BRUNO LIMA' }));
+    const valor = await screen.findByLabelText('Valor (R$)');
+    expect(valor).toHaveValue('45,00');
+    fireEvent.change(valor, { target: { value: '20,00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar' }));
+
+    await waitFor(() => expect(api.registrarPagamento).toHaveBeenCalledWith(2, expect.objectContaining({ valor_centavos: 2000, forma_pagamento: 'pix' })));
+    expect(props.recarregar).toHaveBeenCalled();
+  });
+
+  it('estorno exige motivo', async () => {
+    api.pagamentos.mockResolvedValue({
+      inscricao_id: 1, devido_centavos: 4500, pago_centavos: 4500, saldo_centavos: 0, situacao_financeira: 'quitado',
+      pagamentos: [{ id: 9, inscricao_id: 1, valor_centavos: 4500, data_pagamento: '2026-11-20', forma_pagamento: 'pix', observacao: null, estornado_em: null, motivo_estorno: null }],
+    });
+    api.estornarPagamento.mockResolvedValue({});
+    render(<InscricoesTermos {...propsAba()} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pagamentos de ALICIA SOUZA' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Estornar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar estorno' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Informe o motivo do estorno.');
+    expect(api.estornarPagamento).not.toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText('Motivo do estorno'), { target: { value: 'Lançado em duplicidade' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar estorno' }));
+    await waitFor(() => expect(api.estornarPagamento).toHaveBeenCalledWith(9, 'Lançado em duplicidade'));
   });
 });
 
@@ -147,7 +185,7 @@ describe('Lista de embarque por ônibus', () => {
   };
 
   it('cada ônibus tem o botão de imprimir a sua lista, também para o Apoio', () => {
-    const props = comOnibus({ permissoes: { passeios: false, frota: false } });
+    const props = comOnibus({ permissoes: { passeios: false, frota: false, pagamentos: false } });
     render(<OnibusAssentos {...props} />);
     fireEvent.click(screen.getByRole('button', { name: 'Imprimir lista do Ônibus 01' }));
     expect(props.irPara).toHaveBeenCalledWith('relatorios', { relatorio: 'manifesto', onibus: '5' });
@@ -160,6 +198,6 @@ describe('Lista de embarque por ônibus', () => {
     expect(screen.getByText('ALICIA SOUZA')).toBeInTheDocument();
     // Coluna de chamada para marcar à mão no embarque.
     const colunas = screen.getAllByRole('columnheader').map((c) => c.textContent);
-    expect(colunas).toEqual(['Lugar', 'Aluno', 'Turma', 'Telefone', 'Termo', 'Pago', 'Chamada']);
+    expect(colunas).toEqual(['Lugar', 'Aluno', 'Turma', 'Telefone', 'Termo', 'Pagamento', 'Chamada']);
   });
 });

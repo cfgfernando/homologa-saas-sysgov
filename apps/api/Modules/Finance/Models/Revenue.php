@@ -13,7 +13,7 @@ final class Revenue extends Model
 {
     use TenantAware;
 
-    protected $fillable = ['tenant_id', 'org_unit_id', 'description', 'amount_cents', 'occurred_at', 'due_at', 'paid_at', 'status', 'contract_id', 'budget_unit_id'];
+    protected $fillable = ['tenant_id', 'org_unit_id', 'description', 'amount_cents', 'occurred_at', 'due_at', 'paid_at', 'status', 'contract_id', 'budget_unit_id', 'pessoa_id', 'source_type', 'source_id'];
     protected $casts = ['amount_cents' => 'integer', 'occurred_at' => 'date', 'due_at' => 'date', 'paid_at' => 'date', 'org_unit_id' => 'integer'];
 
     public function orgUnit(): BelongsTo

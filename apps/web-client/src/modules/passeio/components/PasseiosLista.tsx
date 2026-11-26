@@ -223,6 +223,9 @@ export const PasseioFormModal: React.FC<{ passeio: Passeio | 'novo' | null; onFe
           <Input label="Valor por aluno (R$)" value={form.valor} onChange={definir('valor')} inputMode="decimal" className="font-mono tabular-nums" />
           <Select label="Status" value={form.status} onChange={(v) => setForm((f) => ({ ...f, status: v as FormPasseio['status'] }))} options={OPCOES_STATUS} />
         </div>
+        {passeio && passeio !== 'novo' && form.valor !== formDoPasseio(passeio).valor && (
+          <p className="text-xs text-warning" role="status">Mudar o valor recalcula a situação de quem já pagou: quem estava quitado pode voltar a parcial.</p>
+        )}
         <label className="block space-y-1 text-sm font-medium">
           Atividade / observações (sai no termo de autorização)
           <Textarea rows={3} value={form.observacoes} onChange={definir('observacoes')} maxLength={5000} placeholder="O que os alunos vão fazer no passeio" />

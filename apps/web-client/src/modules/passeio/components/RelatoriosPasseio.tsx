@@ -4,7 +4,7 @@ import { Button, Card, CardContent, Select } from '@sysgov/ui';
 import { EmptyState } from '@/components/ui';
 import { formatarCentavos, formatarData } from '@/lib/formatacao';
 import type { Inscricao, Passeio } from '../api';
-import { demonstrativo, emPares, periodoDoPasseio, semAssento } from '../formato';
+import { demonstrativo, emPares, periodoDoPasseio, semAssento, SITUACAO_FINANCEIRA } from '../formato';
 import type { PropsAba } from '../ModuloPasseioMain';
 
 export type Relatorio = 'termos' | 'manifesto' | 'demonstrativo';
@@ -123,7 +123,7 @@ const Manifesto: React.FC<Pick<PropsAba, 'ativo' | 'dados' | 'escola'> & { veicu
   const pendentes = veiculoId === 'todos' ? semAssento(dados.inscricoes, dados.mapas) : [];
   const tabela = (linhas: { assento: string; i: Inscricao | undefined; nome: string | null; turma: string | null }[]) => (
     <table className="w-full border-collapse text-xs">
-      <thead><tr className="bg-gray-200 uppercase"><th className={`${celula} w-12`}>Lugar</th><th className={celula}>Aluno</th><th className={celula}>Turma</th><th className={celula}>Telefone</th><th className={`${celula} w-16`}>Termo</th><th className={`${celula} w-16`}>Pago</th><th className={`${celula} w-24`}>Chamada</th></tr></thead>
+      <thead><tr className="bg-gray-200 uppercase"><th className={`${celula} w-12`}>Lugar</th><th className={celula}>Aluno</th><th className={celula}>Turma</th><th className={celula}>Telefone</th><th className={`${celula} w-16`}>Termo</th><th className={`${celula} w-20`}>Pagamento</th><th className={`${celula} w-24`}>Chamada</th></tr></thead>
       <tbody>
         {linhas.map((l, k) => (
           <tr key={k}>
@@ -132,7 +132,7 @@ const Manifesto: React.FC<Pick<PropsAba, 'ativo' | 'dados' | 'escola'> & { veicu
             <td className={celula}>{l.turma ?? '—'}</td>
             <td className={`${celula} font-mono tabular-nums`}>{l.i?.aluno?.telefone ?? ''}</td>
             <td className={`${celula} text-center`}>{l.i?.autorizacao_entregue ? 'Sim' : 'Não'}</td>
-            <td className={`${celula} text-center`}>{l.i?.pago ? 'Sim' : 'Não'}</td>
+            <td className={`${celula} text-center`}>{l.i ? SITUACAO_FINANCEIRA[l.i.situacao_financeira].rotulo : ''}</td>
             <td className={`${celula} whitespace-nowrap text-center font-mono`}>[&nbsp;&nbsp;&nbsp;] OK</td>
           </tr>
         ))}
@@ -168,13 +168,13 @@ const Manifesto: React.FC<Pick<PropsAba, 'ativo' | 'dados' | 'escola'> & { veicu
   );
 };
 
-/** Demonstrativo por turma: quem vai, pagos, pendentes, arrecadado e a receber. */
+/** Demonstrativo por turma: quem vai, quitados, parciais, pendentes, arrecadado (pagamentos reais) e a receber. */
 const Demonstrativo: React.FC<{ passeio: Passeio; escola: string; inscricoes: Inscricao[] }> = ({ passeio, escola, inscricoes }) => {
-  const { linhas, total } = demonstrativo(inscricoes, passeio.valor_centavos);
+  const { linhas, total } = demonstrativo(inscricoes);
   const linha = (l: typeof total, negrito = false) => (
     <tr key={l.turma} className={negrito ? 'bg-gray-200 font-bold' : ''}>
       <td className={celula}>{l.turma}</td>
-      {[l.vao, l.pagos, l.pendentes].map((n, k) => <td key={k} className={`${celula} text-right font-mono tabular-nums`}>{n}</td>)}
+      {[l.vao, l.pagos, l.parciais, l.pendentes].map((n, k) => <td key={k} className={`${celula} text-right font-mono tabular-nums`}>{n}</td>)}
       <td className={`${celula} text-right font-mono tabular-nums`}>{formatarCentavos(l.arrecadadoCentavos)}</td>
       <td className={`${celula} text-right font-mono tabular-nums`}>{formatarCentavos(l.aReceberCentavos)}</td>
     </tr>
@@ -185,7 +185,7 @@ const Demonstrativo: React.FC<{ passeio: Passeio; escola: string; inscricoes: In
       <InfoPasseio passeio={passeio} />
       <p className="mb-2 text-xs"><strong>Valor por aluno:</strong> <span className="font-mono tabular-nums">{formatarCentavos(passeio.valor_centavos)}</span> · conta só quem vai ao passeio.</p>
       <table className="w-full border-collapse text-xs">
-        <thead><tr className="bg-gray-200 uppercase"><th className={celula}>Turma</th><th className={celula}>Vão</th><th className={celula}>Pagos</th><th className={celula}>Pendentes</th><th className={celula}>Arrecadado</th><th className={celula}>A receber</th></tr></thead>
+        <thead><tr className="bg-gray-200 uppercase"><th className={celula}>Turma</th><th className={celula}>Vão</th><th className={celula}>Quitados</th><th className={celula}>Parciais</th><th className={celula}>Pendentes</th><th className={celula}>Arrecadado</th><th className={celula}>A receber</th></tr></thead>
         <tbody>{linhas.map((l) => linha(l))}{linha(total, true)}</tbody>
       </table>
     </div>

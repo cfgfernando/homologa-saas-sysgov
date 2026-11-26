@@ -43,7 +43,7 @@ export const TurmasPasseio: React.FC<PropsAba> = ({ ativo, dados, recarregar, av
 
   const linhas = useMemo<LinhaTurma[]>(() => dados.turmas.map((t) => {
     const vao = dados.inscricoes.filter((i) => i.aluno?.turma_id === t.id && i.vai);
-    return { turma: t, alunos: t.total_alunos ?? null, vao: vao.length, termos: vao.filter((i) => i.autorizacao_entregue).length, pagos: vao.filter((i) => i.pago).length };
+    return { turma: t, alunos: t.total_alunos ?? null, vao: vao.length, termos: vao.filter((i) => i.autorizacao_entregue).length, pagos: vao.filter((i) => i.situacao_financeira === 'quitado').length };
   }), [dados.turmas, dados.inscricoes]);
 
   const colunas = useMemo<ColumnDef<LinhaTurma, unknown>[]>(() => [
@@ -82,7 +82,7 @@ export const TurmasPasseio: React.FC<PropsAba> = ({ ativo, dados, recarregar, av
     },
     { id: 'vao', header: 'Vão', accessorKey: 'vao', cell: ({ row }) => <span className="block text-right font-mono tabular-nums">{row.original.vao}</span>, meta: { exportHeader: 'Vão', exportValue: (l) => l.vao } },
     { id: 'termos', header: 'Termos', accessorKey: 'termos', cell: ({ row }) => <span className="block text-right font-mono tabular-nums">{row.original.termos}</span>, meta: { exportHeader: 'Termos', exportValue: (l) => l.termos } },
-    { id: 'pagos', header: 'Pagos', accessorKey: 'pagos', cell: ({ row }) => <span className="block text-right font-mono tabular-nums">{row.original.pagos}</span>, meta: { exportHeader: 'Pagos', exportValue: (l) => l.pagos } },
+    { id: 'pagos', header: 'Quitados', accessorKey: 'pagos', cell: ({ row }) => <span className="block text-right font-mono tabular-nums">{row.original.pagos}</span>, meta: { exportHeader: 'Quitados', exportValue: (l) => l.pagos } },
   ], []);
 
   const turmaAberta = dados.turmas.find((t) => t.id === aberta);

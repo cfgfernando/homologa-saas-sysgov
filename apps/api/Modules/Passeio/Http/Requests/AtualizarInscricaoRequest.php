@@ -19,7 +19,6 @@ final class AtualizarInscricaoRequest extends FormRequest
         return [
             'vai' => ['sometimes', 'boolean'],
             'autorizacao_entregue' => ['sometimes', 'boolean'],
-            'pago' => ['sometimes', 'boolean'],
             'observacao' => ['nullable', 'string', 'max:500'],
         ];
     }

@@ -30,7 +30,7 @@ export const PainelPasseio: React.FC<PropsAba & { indicadoresGerais: Indicadores
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard title="Vão ao passeio" value={i.alunos_que_vao} subtitle={`${i.alunos_inscritos} inscritos`} icon={<Users className="h-5 w-5" />} className="font-mono tabular-nums" />
         <KpiCard title="Termos entregues" value={`${i.autorizacoes_percentual.toFixed(0)}%`} subtitle={`${i.autorizacoes_entregues} de ${i.alunos_que_vao} que vão`} icon={<ClipboardCheck className="h-5 w-5" />} className="font-mono tabular-nums" />
-        <KpiCard title="Arrecadado" value={formatarCentavos(i.arrecadado_centavos)} subtitle={`a receber ${formatarCentavos(i.pendente_centavos)}`} icon={<DollarSign className="h-5 w-5" />} className="font-mono tabular-nums" />
+        <KpiCard title="Arrecadado" value={formatarCentavos(i.arrecadado_centavos)} subtitle={`a receber ${formatarCentavos(i.pendente_centavos)} · ${i.inscricoes_quitadas} quitados, ${i.inscricoes_parciais} parciais`} icon={<DollarSign className="h-5 w-5" />} className="font-mono tabular-nums" />
         <KpiCard title="Assentos marcados" value={`${i.assentos_ocupados} / ${i.capacidade_total}`} subtitle={`${i.total_veiculos} veículo(s)`} icon={<Bus className="h-5 w-5" />} className="font-mono tabular-nums" />
       </div>
 
